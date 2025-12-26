@@ -8,6 +8,7 @@ struct ReaderControlsView: View {
     var isBookmarked: Bool = false
     var onToggleBookmark: (() -> Void)?
     let onClose: () -> Void
+    let settings = ReaderSettings.shared
 
     var body: some View {
         VStack {
@@ -53,8 +54,63 @@ struct ReaderControlsView: View {
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(.ultraThinMaterial))
             }
+
+            readerSettingsMenu
         }
         .padding()
+    }
+
+    private var readerSettingsMenu: some View {
+        Menu {
+            // Page Layout Section
+            Section("Page Layout") {
+                Picker("Layout", selection: Binding(
+                    get: { settings.pageLayout },
+                    set: { settings.pageLayout = $0 }
+                )) {
+                    ForEach(PageLayout.allCases) { layout in
+                        Label(layout.rawValue, systemImage: layout.icon)
+                            .tag(layout)
+                    }
+                }
+            }
+
+            // Reading Direction Section
+            Section("Reading Direction") {
+                Picker("Direction", selection: Binding(
+                    get: { settings.readingDirection },
+                    set: { settings.readingDirection = $0 }
+                )) {
+                    ForEach(ReadingDirection.allCases) { direction in
+                        Label(direction.rawValue, systemImage: direction.icon)
+                            .tag(direction)
+                    }
+                }
+            }
+
+            // Display Options Section
+            Section("Display Options") {
+                Toggle(isOn: Binding(
+                    get: { settings.showPageGap },
+                    set: { settings.showPageGap = $0 }
+                )) {
+                    Label("Page Gap", systemImage: "rectangle.split.2x1")
+                }
+
+                Toggle(isOn: Binding(
+                    get: { settings.smartSpreadDetection },
+                    set: { settings.smartSpreadDetection = $0 }
+                )) {
+                    Label("Smart Spreads", systemImage: "sparkles.rectangle.stack")
+                }
+            }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(.ultraThinMaterial))
+        }
     }
 
     private var fitModeMenu: some View {

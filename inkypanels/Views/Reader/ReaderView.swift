@@ -135,7 +135,25 @@ struct ReaderView: View {
 
     private func pageContent(in geometry: GeometryProxy) -> some View {
         ZStack {
-            if let entry = viewModel.currentEntry {
+            if viewModel.isDualPageMode && !viewModel.isCurrentPageWideSpread {
+                // Dual page view
+                DualPageView(
+                    leftEntry: viewModel.currentEntry,
+                    rightEntry: viewModel.secondEntry,
+                    leftImageURL: viewModel.currentPageURL,
+                    rightImageURL: viewModel.secondPageURL,
+                    fitMode: fitMode,
+                    showGap: viewModel.settings.showPageGap,
+                    readingDirection: viewModel.settings.readingDirection,
+                    onTap: { location, size in
+                        viewModel.handleTap(at: location, in: size)
+                    }
+                )
+                .id("\(viewModel.currentEntry?.id ?? "")-dual")
+                .transition(.opacity)
+                .gesture(swipeGesture)
+            } else if let entry = viewModel.currentEntry {
+                // Single page view
                 PageView(
                     entry: entry,
                     imageURL: viewModel.currentPageURL,
@@ -150,6 +168,15 @@ struct ReaderView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: viewModel.currentPageIndex)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.isDualPageMode)
+        .onChange(of: geometry.size) { _, newSize in
+            let isLandscape = newSize.width > newSize.height
+            viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
+        }
+        .onAppear {
+            let isLandscape = geometry.size.width > geometry.size.height
+            viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
+        }
     }
 
     // MARK: - Controls Overlay

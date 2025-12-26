@@ -28,6 +28,7 @@ struct VaultUnlockView: View {
                 // Biometric button (if enabled)
                 if viewModel.isBiometricEnabled {
                     Button {
+                        viewModel.wasManuallyLocked = false
                         Task { await viewModel.unlockWithBiometric() }
                     } label: {
                         VStack(spacing: 12) {
@@ -92,8 +93,8 @@ struct VaultUnlockView: View {
         .navigationTitle("Vault")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // Auto-trigger biometric on appear if enabled
-            if viewModel.isBiometricEnabled && !viewModel.isLoading {
+            // Auto-trigger biometric on appear if enabled, but not if user just locked manually
+            if viewModel.isBiometricEnabled && !viewModel.isLoading && !viewModel.wasManuallyLocked {
                 try? await Task.sleep(for: .milliseconds(300))
                 await viewModel.unlockWithBiometric()
             }

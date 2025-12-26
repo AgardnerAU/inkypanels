@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// ViewModel for the comic reader
 /// Uses streaming architecture - pages are extracted on-demand to temp files
@@ -17,6 +20,15 @@ final class ReaderViewModel {
 
     /// URL of current page image (extracted on demand)
     var currentPageURL: URL?
+
+    /// URL of second page image for dual-page mode
+    var secondPageURL: URL?
+
+    /// Whether currently showing dual pages
+    var isDualPageMode: Bool = false
+
+    /// Whether current page is a wide spread (should show as single in dual mode)
+    var isCurrentPageWideSpread: Bool = false
 
     /// Loading state
     var isLoading: Bool = true
@@ -36,12 +48,23 @@ final class ReaderViewModel {
     /// Whether the current page is bookmarked
     var isCurrentPageBookmarked: Bool = false
 
+    /// Reader settings (shared instance)
+    let settings = ReaderSettings.shared
+
     // MARK: - Computed Properties
 
     /// Current entry (metadata)
     var currentEntry: ArchiveEntry? {
         guard currentPageIndex >= 0 && currentPageIndex < entries.count else { return nil }
         return entries[currentPageIndex]
+    }
+
+    /// Second entry for dual-page mode
+    var secondEntry: ArchiveEntry? {
+        guard isDualPageMode && !isCurrentPageWideSpread else { return nil }
+        let secondIndex = currentPageIndex + 1
+        guard secondIndex < entries.count else { return nil }
+        return entries[secondIndex]
     }
 
     var totalPages: Int {
@@ -59,6 +82,14 @@ final class ReaderViewModel {
     var progressPercentage: Double {
         guard totalPages > 0 else { return 0 }
         return Double(currentPageIndex + 1) / Double(totalPages) * 100
+    }
+
+    /// Number of pages to advance (1 for single, 2 for dual unless at end or wide spread)
+    private var pageAdvanceCount: Int {
+        if isDualPageMode && !isCurrentPageWideSpread && currentPageIndex + 2 < entries.count {
+            return 2
+        }
+        return 1
     }
 
     // MARK: - Private Properties
@@ -143,7 +174,9 @@ final class ReaderViewModel {
 
     func goToNextPage() {
         guard canGoNext else { return }
-        currentPageIndex += 1
+        currentPageIndex += pageAdvanceCount
+        // Clamp to valid range
+        currentPageIndex = min(currentPageIndex, entries.count - 1)
         Task { await loadCurrentPage() }
         saveProgress()
         updateBookmarkState()
@@ -151,7 +184,9 @@ final class ReaderViewModel {
 
     func goToPreviousPage() {
         guard canGoPrevious else { return }
-        currentPageIndex -= 1
+        // Go back by pageAdvanceCount, but check if previous page was a wide spread
+        let previousIndex = max(0, currentPageIndex - pageAdvanceCount)
+        currentPageIndex = previousIndex
         Task { await loadCurrentPage() }
         saveProgress()
         updateBookmarkState()
@@ -163,6 +198,24 @@ final class ReaderViewModel {
         Task { await loadCurrentPage() }
         saveProgress()
         updateBookmarkState()
+    }
+
+    /// Update page layout based on current orientation
+    func updateLayoutForOrientation(isLandscape: Bool) {
+        let newDualMode: Bool
+        switch settings.pageLayout {
+        case .single:
+            newDualMode = false
+        case .dual:
+            newDualMode = true
+        case .auto:
+            newDualMode = isLandscape
+        }
+
+        if newDualMode != isDualPageMode {
+            isDualPageMode = newDualMode
+            Task { await loadCurrentPage() }
+        }
     }
 
     func toggleControls() {
@@ -201,11 +254,26 @@ final class ReaderViewModel {
     private func loadCurrentPage() async {
         guard let entry = currentEntry else {
             currentPageURL = nil
+            secondPageURL = nil
             return
         }
 
         do {
             currentPageURL = try await extractionCache.url(for: entry)
+
+            // Check if current page is a wide spread (smart detection)
+            if isDualPageMode && settings.smartSpreadDetection {
+                isCurrentPageWideSpread = await checkIfWideSpread(url: currentPageURL)
+            } else {
+                isCurrentPageWideSpread = false
+            }
+
+            // Load second page if in dual mode and not a wide spread
+            if isDualPageMode && !isCurrentPageWideSpread, let secondEntry = secondEntry {
+                secondPageURL = try await extractionCache.url(for: secondEntry)
+            } else {
+                secondPageURL = nil
+            }
 
             // Prefetch nearby pages
             Task {
@@ -214,7 +282,21 @@ final class ReaderViewModel {
         } catch {
             // Failed to load page - keep previous URL or show placeholder
             currentPageURL = nil
+            secondPageURL = nil
         }
+    }
+
+    /// Check if an image is a wide spread (width > height * 1.2)
+    private func checkIfWideSpread(url: URL?) async -> Bool {
+        guard let url = url else { return false }
+
+        #if canImport(UIKit)
+        guard let image = UIImage(contentsOfFile: url.path) else { return false }
+        let size = image.size
+        return size.width > size.height * 1.2
+        #else
+        return false
+        #endif
     }
 
     private func saveProgress() {

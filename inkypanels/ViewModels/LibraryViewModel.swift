@@ -163,6 +163,28 @@ final class LibraryViewModel {
         selectedFiles.remove(file.id)
     }
 
+    /// Import files from external URLs (e.g., from document picker)
+    func importFiles(_ urls: [URL]) async {
+        for url in urls {
+            // Start accessing security-scoped resource
+            guard url.startAccessingSecurityScopedResource() else { continue }
+            defer { url.stopAccessingSecurityScopedResource() }
+
+            let filename = url.lastPathComponent
+            let destination = currentDirectory.appendingPathComponent(filename)
+
+            do {
+                _ = try await fileService.importFile(from: url, to: destination)
+            } catch {
+                // Continue importing others even if one fails
+                continue
+            }
+        }
+
+        // Refresh the file list
+        await loadFiles()
+    }
+
     func setSortOrder(_ order: SortOrder) {
         sortOrder = order
         files = sortFiles(files)

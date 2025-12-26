@@ -33,6 +33,7 @@ final class VaultViewModel {
 
     // Unlock fields
     var unlockPassword: String = ""
+    var wasManuallyLocked: Bool = false
 
     // Settings fields
     var showSettings: Bool = false
@@ -176,6 +177,7 @@ final class VaultViewModel {
         Task {
             await vaultService.lock()
         }
+        wasManuallyLocked = true
         vaultState = .locked
         vaultItems = []
         decryptedFileURL = nil

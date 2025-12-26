@@ -6,6 +6,7 @@ struct LibraryView: View {
     @State private var viewModel = LibraryViewModel()
     @State private var navigationPath = NavigationPath()
     @State private var showDeleteConfirmation = false
+    @State private var showImportPicker = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -48,6 +49,9 @@ struct LibraryView: View {
                     Task { await viewModel.deleteSelected() }
                 }
                 Button("Cancel", role: .cancel) {}
+            }
+            .sheet(isPresented: $showImportPicker) {
+                importPickerSheet
             }
         }
         .task {
@@ -168,6 +172,12 @@ struct LibraryView: View {
                 .disabled(!viewModel.hasSelection)
             } else {
                 Button {
+                    showImportPicker = true
+                } label: {
+                    Label("Import", systemImage: "plus")
+                }
+
+                Button {
                     viewModel.toggleSelection()
                 } label: {
                     Label("Select", systemImage: "checkmark.circle")
@@ -186,6 +196,17 @@ struct LibraryView: View {
                     Label("Sort", systemImage: "arrow.up.arrow.down")
                 }
             }
+        }
+    }
+
+    // MARK: - Import Picker
+
+    private var importPickerSheet: some View {
+        DocumentPicker { urls in
+            showImportPicker = false
+            Task { await viewModel.importFiles(urls) }
+        } onCancel: {
+            showImportPicker = false
         }
     }
 
