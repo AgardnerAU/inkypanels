@@ -3,13 +3,26 @@ import SwiftUI
 import UIKit
 #endif
 
+/// Displays a single comic page from either a file URL or inline data
 struct PageView: View {
-    let page: ComicPage
+    /// Entry metadata for this page
+    let entry: ArchiveEntry
+
+    /// URL of the extracted image file (preferred)
+    let imageURL: URL?
+
+    /// Fallback: inline image data (legacy support)
+    let imageData: Data?
+
+    init(entry: ArchiveEntry, imageURL: URL? = nil, imageData: Data? = nil) {
+        self.entry = entry
+        self.imageURL = imageURL
+        self.imageData = imageData
+    }
 
     var body: some View {
         Group {
-            if let imageData = page.imageData,
-               let image = createImage(from: imageData) {
+            if let image = loadImage() {
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -18,6 +31,32 @@ struct PageView: View {
                 placeholderView
             }
         }
+    }
+
+    private func loadImage() -> Image? {
+        // Try URL first (new architecture)
+        if let url = imageURL {
+            return createImage(from: url)
+        }
+
+        // Fallback to inline data (legacy)
+        if let data = imageData {
+            return createImage(from: data)
+        }
+
+        return nil
+    }
+
+    private func createImage(from url: URL) -> Image? {
+        #if canImport(UIKit)
+        guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+        return Image(uiImage: uiImage)
+        #elseif canImport(AppKit)
+        guard let nsImage = NSImage(contentsOfFile: url.path) else { return nil }
+        return Image(nsImage: nsImage)
+        #else
+        return nil
+        #endif
     }
 
     private func createImage(from data: Data) -> Image? {
@@ -38,11 +77,11 @@ struct PageView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
 
-            Text("Page \(page.index + 1)")
+            Text("Page \(entry.index + 1)")
                 .font(.headline)
                 .foregroundStyle(.white)
 
-            Text(page.fileName)
+            Text(entry.fileName)
                 .font(.caption)
                 .foregroundStyle(.gray)
         }
@@ -55,9 +94,12 @@ struct PageView: View {
     ZStack {
         Color.black.ignoresSafeArea()
 
-        PageView(page: ComicPage(
-            index: 0,
-            fileName: "page_001.jpg"
-        ))
+        PageView(
+            entry: ArchiveEntry(
+                path: "page_001.jpg",
+                uncompressedSize: 1024,
+                index: 0
+            )
+        )
     }
 }

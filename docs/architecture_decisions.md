@@ -1,30 +1,44 @@
 # inkypanels - Architecture Decisions Record
 
-This document captures all architectural decisions made before development began.
+This document captures architectural decisions for the inkypanels project.
+
+> **Last Updated**: 2024-12-26
+> **Status**: Phase 1B complete - Streaming architecture implemented
+
+---
+
+## Development Progress
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 0: Foundation | Complete | Project structure, models, protocols |
+| Phase 0.1: Walking Skeleton | Complete | FileService, basic reader, navigation |
+| Phase 1B: Archive Support | Complete | PDF, streaming extraction, security |
+| Phase 1C: Reader Experience | Not Started | ZoomableImageView, progress persistence |
+| Phase 1D: Secure Vault | Not Started | Encryption, biometrics |
 
 ---
 
 ## 1. Dependency Injection Strategy
 
-**Decision**: Environment Objects
+**Decision**: Constructor Injection with Factory Pattern
 
 **Details**:
-- Services defined as protocols with `@Observable` implementations
-- Registered at app root via `.environment()` modifier
-- ViewModels access services via `@Environment` property wrapper
-- Tests inject mock implementations
+- Services instantiated directly in ViewModels with default parameters
+- Factory (`ArchiveReaderFactory`) routes to appropriate backend by file type
+- Tests inject mock implementations via constructor
 
 **Example**:
 ```swift
-protocol ArchiveServiceProtocol {
-    func extractPages(from url: URL) async throws -> [ComicPage]
+// Factory creates appropriate reader based on file type
+let reader = try ArchiveReaderFactory.reader(for: comic.url)
+let entries = try await reader.listEntries()
+
+// ViewModel with injectable dependencies
+init(comic: ComicFile, extractionCache: ExtractionCache = ExtractionCache()) {
+    self.comic = comic
+    self.extractionCache = extractionCache
 }
-
-@Observable
-final class ArchiveService: ArchiveServiceProtocol { ... }
-
-// In App root:
-.environment(ArchiveService() as ArchiveServiceProtocol)
 ```
 
 ---
@@ -79,32 +93,44 @@ enum ReaderError: Error {
 
 ## 3. Concurrency Model
 
-**Decision**: Actor-Based Services
+**Decision**: Actor-Based Services with On-Demand Extraction
 
 **Details**:
-- All services that perform I/O or heavy computation are Swift actors
-- Automatic thread safety without manual synchronization
+- All readers and cache services are Swift actors
+- Pages extracted on-demand to temp files (not loaded into memory upfront)
+- ExtractionCache manages temp file lifecycle with windowed eviction
 - ViewModels marked `@MainActor` for UI updates
 - Async/await throughout (no completion handlers)
 
 **Example**:
 ```swift
-actor ArchiveService: ArchiveServiceProtocol {
-    func extractPages(from url: URL) async throws -> [ComicPage] {
-        // Runs on actor's isolated context, off main thread
+actor ZIPFoundationReader: ArchiveReader {
+    func listEntries() async throws -> [ArchiveEntry] {
+        // Returns metadata only - no decompression yet
+    }
+
+    func extractEntry(_ entry: ArchiveEntry) async throws -> URL {
+        // Extracts single entry to temp file, returns URL
+    }
+}
+
+actor ExtractionCache {
+    func url(for entry: ArchiveEntry) async throws -> URL {
+        // Returns cached URL or extracts on-demand
     }
 }
 
 @MainActor
 @Observable
 final class ReaderViewModel {
-    func loadComic(at url: URL) async {
-        do {
-            let pages = try await archiveService.extractPages(from: url)
-            self.pages = pages  // UI update on main thread
-        } catch {
-            self.error = error
-        }
+    func loadComic() async {
+        reader = try ArchiveReaderFactory.reader(for: comic.url)
+        entries = try await reader.listEntries()  // Fast: metadata only
+        await loadCurrentPage()  // Extract just current page
+    }
+
+    private func loadCurrentPage() async {
+        currentPageURL = try await extractionCache.url(for: currentEntry)
     }
 }
 ```
@@ -139,14 +165,16 @@ final class AppState {
 
 **Decision**: Iterative Releases
 
-| Version | Features | Risk Level |
-|---------|----------|------------|
-| **v0.1** | File browser, images, CBZ (ZIPFoundation), basic navigation, reading progress | Low |
-| **v0.2** | ZoomableImageView (pinch/pan), PDF support, reading controls overlay | Medium |
-| **v0.3** | libarchive integration for CBR/CB7, RAR5 detection | High |
-| **v0.4** | Secure vault with AES-256 encryption | High |
+| Version | Features | Risk Level | Status |
+|---------|----------|------------|--------|
+| **v0.1** | File browser, CBZ/PDF, basic navigation, streaming extraction | Low | **Done** |
+| **v0.2** | ZoomableImageView (pinch/pan), reading controls overlay, progress persistence | Medium | Next |
+| **v0.3** | libarchive XCFramework for CBR/CB7, RAR5 detection | High | Blocked on build |
+| **v0.4** | Secure vault with AES-256 encryption | High | Planned |
 
 **Rationale**: De-risk by getting core reading working before tackling C bridging and encryption.
+
+**Note**: PDF support moved to v0.1 (uses native PDFKit). libarchive integration prepared with feature flag (`LIBARCHIVE_ENABLED`) but requires building the XCFramework.
 
 ---
 
@@ -174,13 +202,20 @@ final class AppState {
 
 ## 7. Memory Management
 
-### Page Image Cache
-- **Strategy**: Windowed cache (current page ± 3 pages)
-- **Max Pages in Memory**: 7
-- **Prefetch**: Load next 3 pages as user reads
-- **Eviction**: Remove pages > 3 positions from current
+### Streaming Extraction (Implemented)
+- **Strategy**: Extract to temp files on-demand, not memory
+- **Cache Location**: `tmp/inkypanels-extraction/[archive-hash]/`
+- **Window Size**: Current page ± 5 pages kept extracted
+- **Prefetch**: Extract next 5 pages in background on navigation
+- **Eviction**: Delete temp files outside 2x window on navigation
+- **Cleanup**: All temp files deleted when reader closes
 
-### Thumbnail Cache
+### Page Display
+- **Loading**: `UIImage(contentsOfFile:)` from temp file URL
+- **Memory**: Only current page image in memory at a time
+- **Benefit**: Large comics (1000+ pages) work without OOM
+
+### Thumbnail Cache (Planned)
 - **Location**: `Caches/Thumbnails/`
 - **Naming**: SHA-256 hash of file path
 - **Size Limit**: 500MB
@@ -259,32 +294,132 @@ final class AppState {
 
 ### Swift Packages
 
-| Package | Purpose | Version |
-|---------|---------|---------|
-| [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) | CBZ/ZIP extraction | Latest stable |
-| [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) | View regression tests | Latest stable |
+| Package | Purpose | Version | Status |
+|---------|---------|---------|--------|
+| [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) | CBZ/ZIP extraction | 0.9+ | Active |
+| [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) | View regression tests | 1.15+ | Active |
 
 ### Future (v0.3+)
 
-| Package | Purpose |
-|---------|---------|
-| libarchive | CBR/CB7 extraction (C library) |
+| Package | Purpose | Status |
+|---------|---------|--------|
+| libarchive XCFramework | CBR/CB7 extraction | Infrastructure ready, build pending |
+
+---
+
+## 14. Streaming Extraction Architecture
+
+**Decision**: Extract-on-Demand to Temp Files
+
+**Date**: 2024-12-26
+
+**Context**: Original design loaded all pages into memory as `Data` arrays. This would fail for large comics (1000+ pages) and waste memory for pages never viewed.
+
+**Decision**:
+- `ArchiveReader` protocol returns `[ArchiveEntry]` (metadata only)
+- `extractEntry()` writes to temp file, returns `URL`
+- `ExtractionCache` manages temp file lifecycle
+- PageView loads image from file URL
+
+**Consequences**:
+- Comics of any size work without OOM
+- Slightly slower page transitions (disk I/O)
+- Temp files cleaned up on reader close
+- More complex but more robust
+
+---
+
+## 15. Archive Security Hardening
+
+**Decision**: Validate All Archive Entries Before Extraction
+
+**Date**: 2024-12-26
+
+**Context**: Archives can contain malicious content (zip bombs, path traversal attacks, oversized files).
+
+**Implementation** (`ArchiveLimits`):
+```swift
+enum ArchiveLimits {
+    static let maxEntryCount = 2000
+    static let maxUncompressedEntrySize: UInt64 = 100 * 1024 * 1024  // 100MB
+    static let maxTotalUncompressedSize: UInt64 = 2 * 1024 * 1024 * 1024  // 2GB
+    static let allowedExtensions: Set<String> = ["jpg", "jpeg", "png", ...]
+}
+```
+
+**Validations**:
+- Reject paths containing `..` (directory traversal)
+- Reject absolute paths starting with `/`
+- Skip entries exceeding size limits
+- Only extract whitelisted image extensions
+- Skip `__MACOSX`, hidden files, `_` prefixed files
+
+---
+
+## 16. Build-Time Feature Flags
+
+**Decision**: Use Compile-Time Flags for Optional Features
+
+**Date**: 2024-12-26
+
+**Context**: libarchive requires building a C library as an XCFramework. Until that's done, CBR/CB7 support should gracefully degrade.
+
+**Implementation**:
+```swift
+#if LIBARCHIVE_ENABLED
+actor LibArchiveReader: ArchiveReader {
+    // Real implementation
+}
+#else
+actor LibArchiveReader: ArchiveReader {
+    func listEntries() async throws -> [ArchiveEntry] {
+        throw InkyPanelsError.archive(.unsupportedFormat("RAR/7z"))
+    }
+}
+#endif
+```
+
+**Configuration** (project.yml):
+```yaml
+settings:
+  configs:
+    Debug-LibArchive:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG LIBARCHIVE_ENABLED
+```
+
+**Benefits**:
+- CI passes without libarchive dependency
+- Clean v0.1 release with CBZ/PDF only
+- Easy to enable for TestFlight/internal builds
 
 ---
 
 ## Service Protocol Definitions
 
-These protocols should be defined in Phase 0 before any implementation:
+### Core Protocols (Implemented)
 
 ```swift
-// MARK: - Archive Service
+// MARK: - Archive Reader (NEW - Streaming Architecture)
 
-protocol ArchiveServiceProtocol: Sendable {
-    func extractPages(from url: URL) async throws -> [ComicPage]
-    func extractPage(at index: Int, from url: URL) async throws -> ComicPage
-    func pageCount(for url: URL) async throws -> Int
-    func extractCoverImage(from url: URL) async throws -> Data
+protocol ArchiveReader: AnyObject, Sendable {
+    var archiveURL: URL { get }
+    func listEntries() async throws -> [ArchiveEntry]
+    func extractEntry(_ entry: ArchiveEntry) async throws -> URL
+    static func canOpen(_ url: URL) -> Bool
 }
+
+struct ArchiveEntry: Identifiable, Sendable {
+    let id: String              // Unique within archive
+    let path: String            // Original path in archive
+    let fileName: String        // Just the filename
+    let uncompressedSize: UInt64
+    let index: Int              // Sorted position for page ordering
+}
+
+// Implementations:
+// - ZIPFoundationReader (CBZ, ZIP)
+// - PDFReader (PDF)
+// - LibArchiveReader (CBR, CB7, RAR, 7z) - requires LIBARCHIVE_ENABLED
 
 // MARK: - File Service
 
@@ -293,10 +428,13 @@ protocol FileServiceProtocol: Sendable {
     func fileExists(at url: URL) -> Bool
     func moveFile(from source: URL, to destination: URL) async throws
     func deleteFile(at url: URL) async throws
-    func importFile(from source: URL, to destination: URL) async throws -> URL
     func detectFileType(at url: URL) async throws -> ComicFileType
 }
+```
 
+### Planned Protocols (v0.2+)
+
+```swift
 // MARK: - Progress Service
 
 protocol ProgressServiceProtocol: Sendable {
@@ -306,43 +444,35 @@ protocol ProgressServiceProtocol: Sendable {
     func deleteProgress(for comicId: UUID) async throws
 }
 
-// MARK: - Image Cache Service
-
-protocol ImageCacheServiceProtocol: Sendable {
-    func cacheImage(_ data: Data, for key: String) async
-    func retrieveImage(for key: String) async -> Data?
-    func prefetchPages(_ indices: [Int], from url: URL) async
-    func clearCache() async
-}
-
 // MARK: - Thumbnail Service
 
 protocol ThumbnailServiceProtocol: Sendable {
     func thumbnail(for file: ComicFile) async throws -> Data
     func generateThumbnail(from imageData: Data, size: CGSize) async throws -> Data
     func clearCache() async
-    func cacheSize() async -> Int64
 }
+```
 
-// MARK: - Encryption Service (v0.4)
+### Vault Protocols (v0.4)
+
+```swift
+// MARK: - Encryption Service
 
 protocol EncryptionServiceProtocol: Sendable {
     func encrypt(data: Data, withKey key: SymmetricKey) async throws -> Data
     func decrypt(data: Data, withKey key: SymmetricKey) async throws -> Data
     func deriveKey(from password: String, salt: Data) async throws -> SymmetricKey
-    func generateSalt() -> Data
 }
 
-// MARK: - Keychain Service (v0.4)
+// MARK: - Keychain Service
 
 protocol KeychainServiceProtocol: Sendable {
     func save(_ data: Data, for key: String, requireBiometric: Bool) async throws
     func retrieve(for key: String, prompt: String) async throws -> Data?
     func delete(for key: String) async throws
-    func exists(for key: String) -> Bool
 }
 
-// MARK: - Vault Service (v0.4)
+// MARK: - Vault Service
 
 protocol VaultServiceProtocol: Sendable {
     func unlock(withPassword password: String) async throws
@@ -352,25 +482,28 @@ protocol VaultServiceProtocol: Sendable {
     func addFile(_ file: ComicFile) async throws
     func removeFile(_ file: VaultItem) async throws
     func listFiles() async throws -> [VaultItem]
-    func decryptFile(_ item: VaultItem) async throws -> URL
 }
 ```
 
 ---
 
-## Directory Structure (Updated)
+## Directory Structure (Current)
 
 ```
 inkypanels/
 ├── inkypanels.xcodeproj
+├── project.yml                          # XcodeGen configuration
+├── Package.swift                        # SPM manifest
 ├── inkypanels/
 │   ├── App/
 │   │   ├── InkyPanelsApp.swift
-│   │   └── AppState.swift              # Shared observable state
+│   │   ├── ContentView.swift            # Root navigation
+│   │   └── AppState.swift
 │   │
 │   ├── Models/
 │   │   ├── ComicFile.swift
-│   │   ├── ComicPage.swift
+│   │   ├── ComicPage.swift              # Legacy (being phased out)
+│   │   ├── ArchiveEntry.swift           # NEW: Page metadata
 │   │   ├── ReadingProgress.swift
 │   │   ├── VaultItem.swift
 │   │   └── Errors/
@@ -380,84 +513,85 @@ inkypanels/
 │   │       ├── FileSystemError.swift
 │   │       └── ReaderError.swift
 │   │
-│   ├── Protocols/                       # All service protocols
-│   │   ├── ArchiveServiceProtocol.swift
+│   ├── Protocols/
+│   │   ├── ArchiveReader.swift          # NEW: Streaming extraction
 │   │   ├── FileServiceProtocol.swift
 │   │   ├── ProgressServiceProtocol.swift
-│   │   ├── ImageCacheServiceProtocol.swift
 │   │   ├── ThumbnailServiceProtocol.swift
 │   │   ├── EncryptionServiceProtocol.swift
 │   │   ├── KeychainServiceProtocol.swift
 │   │   └── VaultServiceProtocol.swift
 │   │
-│   ├── Services/                        # Protocol implementations
-│   │   ├── ArchiveService.swift
+│   ├── Services/
 │   │   ├── FileService.swift
-│   │   ├── ProgressService.swift
-│   │   ├── ImageCacheService.swift
-│   │   ├── ThumbnailService.swift
-│   │   └── (vault services in v0.4)
+│   │   ├── ArchiveReaderFactory.swift   # NEW: Format routing
+│   │   ├── ExtractionCache.swift        # NEW: Temp file management
+│   │   └── Readers/                     # NEW: Backend implementations
+│   │       ├── ZIPFoundationReader.swift
+│   │       ├── PDFReader.swift
+│   │       └── LibArchiveReader.swift
 │   │
 │   ├── ViewModels/
 │   │   ├── LibraryViewModel.swift
-│   │   ├── ReaderViewModel.swift
-│   │   └── VaultViewModel.swift
+│   │   └── ReaderViewModel.swift
 │   │
 │   ├── Views/
-│   │   └── (as in original plan)
+│   │   ├── Library/
+│   │   │   ├── LibraryView.swift
+│   │   │   └── FileRowView.swift
+│   │   ├── Reader/
+│   │   │   ├── ReaderView.swift
+│   │   │   ├── PageView.swift
+│   │   │   ├── ReaderControlsView.swift
+│   │   │   └── PageSliderView.swift
+│   │   └── Components/
+│   │       ├── ThumbnailView.swift
+│   │       ├── LoadingView.swift
+│   │       └── ErrorView.swift
 │   │
-│   └── Utilities/
-│       └── (as in original plan)
+│   ├── Utilities/
+│   │   ├── Constants.swift
+│   │   ├── FileTypes.swift
+│   │   └── ArchiveLimits.swift          # NEW: Security constants
+│   │
+│   └── Resources/
+│       ├── Assets.xcassets
+│       └── Info.plist
 │
 ├── inkypanelsTests/
-│   ├── Mocks/                           # Mock service implementations
-│   │   ├── MockArchiveService.swift
-│   │   ├── MockFileService.swift
-│   │   └── ...
-│   │
-│   ├── Services/
-│   │   ├── ArchiveServiceTests.swift
-│   │   ├── FileServiceTests.swift
-│   │   └── ...
-│   │
-│   ├── ViewModels/
-│   │   ├── LibraryViewModelTests.swift
-│   │   └── ReaderViewModelTests.swift
-│   │
-│   ├── Snapshots/
-│   │   └── __Snapshots__/               # Reference images
-│   │
 │   └── Fixtures/
-│       ├── sample.cbz
-│       ├── sample-images/
-│       └── corrupted.cbz
 │
 └── docs/
     ├── inkypanels_plan.md
-    └── architecture_decisions.md         # This document
+    └── architecture_decisions.md
 ```
 
 ---
 
 ## Next Steps
 
-### Phase 0: Foundation (Before Features)
+### Completed
 
-1. Create Xcode project with folder structure above
-2. Add Swift packages (ZIPFoundation, swift-snapshot-testing)
-3. Define all error types
-4. Define all service protocols (even those implemented later)
-5. Create AppState skeleton
-6. Set up test target with fixture files
-7. Configure CI (optional but recommended)
+- [x] Phase 0: Foundation - Project structure, models, error types
+- [x] Phase 0.1: Walking Skeleton - FileService, basic reader flow
+- [x] Phase 1B: Archive Support - PDF, streaming architecture, security
 
-### Phase 0.1: Walking Skeleton
+### Next: Phase 1C - Reader Experience
 
-1. Implement FileService (list files, detect types)
-2. Implement basic ArchiveService (CBZ extraction only)
-3. Create minimal LibraryView (file list)
-4. Create minimal ReaderView (display pages, swipe navigation)
-5. Verify full flow: Browse → Open CBZ → View Pages → Navigate
+1. Implement ZoomableImageView with pinch-zoom
+2. Add pan gesture while zoomed
+3. Create ProgressService for reading position persistence
+4. Restore last position on open
+5. Add bookmark functionality
+
+### Blocked: Phase 1B - libarchive Integration
+
+libarchive infrastructure is ready (`LibArchiveReader` with feature flag). Requires:
+
+1. Build libarchive for iOS (arm64) and simulator
+2. Create XCFramework bundle
+3. Add to project with bridging header
+4. Enable `LIBARCHIVE_ENABLED` compilation condition
 
 ---
 
@@ -466,3 +600,4 @@ inkypanels/
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2024-12-25 | Initial architecture decisions |
+| 2.0 | 2024-12-26 | Major revision: streaming extraction, security hardening, build-time feature flags |

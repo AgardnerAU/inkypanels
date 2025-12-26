@@ -9,11 +9,41 @@ struct ErrorView: View {
         self.retryAction = retryAction
     }
 
+    private var recoverySuggestion: String? {
+        if let inkyError = error as? InkyPanelsError {
+            return inkyError.recoverySuggestion
+        }
+        if let archiveError = error as? ArchiveError {
+            return archiveError.recoverySuggestion
+        }
+        return nil
+    }
+
+    private var systemImage: String {
+        if let inkyError = error as? InkyPanelsError {
+            switch inkyError {
+            case .archive(.rar5NotSupported):
+                return "doc.badge.gearshape"
+            default:
+                return "exclamationmark.triangle"
+            }
+        }
+        return "exclamationmark.triangle"
+    }
+
     var body: some View {
         ContentUnavailableView {
-            Label("Error", systemImage: "exclamationmark.triangle")
+            Label("Error", systemImage: systemImage)
         } description: {
-            Text(error.localizedDescription)
+            VStack(spacing: 8) {
+                Text(error.localizedDescription)
+
+                if let suggestion = recoverySuggestion {
+                    Text(suggestion)
+                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                }
+            }
         } actions: {
             if let retryAction {
                 Button("Try Again", action: retryAction)

@@ -20,13 +20,13 @@ struct ReaderView: View {
                     loadingView
                 } else if let error = viewModel.error {
                     errorView(error)
-                } else if viewModel.pages.isEmpty {
+                } else if viewModel.entries.isEmpty {
                     emptyView
                 } else {
                     pageContent(in: geometry)
                 }
 
-                if viewModel.showControls && !viewModel.isLoading && !viewModel.pages.isEmpty {
+                if viewModel.showControls && !viewModel.isLoading && !viewModel.entries.isEmpty {
                     controlsOverlay
                 }
             }
@@ -38,19 +38,29 @@ struct ReaderView: View {
         .task {
             await viewModel.loadComic()
         }
+        .onDisappear {
+            Task {
+                await viewModel.cleanup()
+            }
+        }
     }
 
     // MARK: - Loading State
 
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.5)
+        VStack(spacing: 20) {
+            ProgressView(value: viewModel.extractionProgress)
+                .progressViewStyle(.linear)
+                .frame(width: 250)
                 .tint(.white)
 
-            Text("Loading \(comic.name)...")
+            Text(viewModel.loadingStatus)
                 .font(.headline)
                 .foregroundStyle(.white)
+
+            Text(comic.name)
+                .font(.subheadline)
+                .foregroundStyle(.gray)
         }
     }
 
@@ -122,10 +132,13 @@ struct ReaderView: View {
 
     private func pageContent(in geometry: GeometryProxy) -> some View {
         ZStack {
-            if let page = viewModel.currentPage {
-                PageView(page: page)
-                    .id(page.id)
-                    .transition(.opacity)
+            if let entry = viewModel.currentEntry {
+                PageView(
+                    entry: entry,
+                    imageURL: viewModel.currentPageURL
+                )
+                .id(entry.id)
+                .transition(.opacity)
             }
         }
         .gesture(tapGesture(in: geometry))

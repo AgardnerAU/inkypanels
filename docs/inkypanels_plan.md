@@ -32,26 +32,28 @@
 
 ### Phase 1: MVP (Minimum Viable Product)
 
+> **Status**: Phase 1A-1B complete, 1C-1E in progress
+
 #### Core Reading Experience
-- [ ] Open and display image files (PNG, JPG, WEBP, TIFF)
-- [ ] Open CBZ/ZIP comic archives
-- [ ] Open CBR/RAR comic archives (RAR4 format)
-- [ ] Open CB7/7z comic archives
-- [ ] Open PDF files with page extraction
-- [ ] Full-screen reading mode
-- [ ] Swipe navigation between pages
-- [ ] Tap zones for navigation (left/right/center)
+- [x] Open and display image files (PNG, JPG, WEBP, TIFF)
+- [x] Open CBZ/ZIP comic archives
+- [ ] Open CBR/RAR comic archives (RAR4 format) - *infrastructure ready, needs libarchive*
+- [ ] Open CB7/7z comic archives - *infrastructure ready, needs libarchive*
+- [x] Open PDF files with page extraction
+- [x] Full-screen reading mode
+- [x] Swipe navigation between pages
+- [x] Tap zones for navigation (left/right/center)
 - [ ] Pinch-to-zoom with pan
 - [ ] Auto-fit modes (fit width, fit height, fit screen)
-- [ ] Support both portrait and landscape orientations
+- [x] Support both portrait and landscape orientations
 
 #### File Management
-- [ ] Browse Documents folder
-- [ ] Navigate folder hierarchy
+- [x] Browse Documents folder
+- [x] Navigate folder hierarchy
 - [ ] Display file thumbnails
-- [ ] Sort files (name, date, size)
+- [x] Sort files (name, date, size)
 - [ ] Recent files list
-- [ ] Import via Files app / iTunes file sharing
+- [x] Import via Files app / iTunes file sharing
 
 #### Reading Progress
 - [ ] Remember last page per comic
@@ -117,136 +119,130 @@
 
 ## Project Structure
 
+> **Updated**: 2024-12-26 - Reflects streaming extraction architecture
+
 ```
 inkypanels/
 ├── inkypanels.xcodeproj
+├── project.yml                          # XcodeGen configuration
+├── Package.swift                        # SPM for testing
 ├── inkypanels/
 │   ├── App/
-│   │   ├── inkypanelsApp.swift          # App entry point
-│   │   └── ContentView.swift            # Root navigation
+│   │   ├── InkyPanelsApp.swift          # App entry point
+│   │   ├── ContentView.swift            # Root navigation (sidebar)
+│   │   └── AppState.swift               # Shared observable state
 │   │
 │   ├── Models/
 │   │   ├── ComicFile.swift              # Comic file representation
-│   │   ├── ComicPage.swift              # Individual page data
+│   │   ├── ArchiveEntry.swift           # Page metadata (NEW)
+│   │   ├── ComicPage.swift              # Legacy, being phased out
 │   │   ├── ReadingProgress.swift        # Progress tracking model
-│   │   ├── VaultItem.swift              # Encrypted file reference
-│   │   └── AppSettings.swift            # User preferences
+│   │   └── Errors/
+│   │       ├── InkyPanelsError.swift    # Top-level error enum
+│   │       ├── ArchiveError.swift
+│   │       ├── FileSystemError.swift
+│   │       ├── ReaderError.swift
+│   │       └── VaultError.swift
 │   │
-│   ├── Views/
-│   │   ├── Library/
-│   │   │   ├── LibraryView.swift        # Main library browser
-│   │   │   ├── FileRowView.swift        # List row component
-│   │   │   ├── FolderGridView.swift     # Grid layout option
-│   │   │   └── FileDetailView.swift     # File info sheet
-│   │   │
-│   │   ├── Reader/
-│   │   │   ├── ReaderView.swift         # Main reader container
-│   │   │   ├── PageView.swift           # Single page display
-│   │   │   ├── ZoomableImageView.swift  # Pinch-zoom handling
-│   │   │   ├── ReaderControlsView.swift # Navigation overlay
-│   │   │   └── PageSliderView.swift     # Page scrubber
-│   │   │
-│   │   ├── Vault/
-│   │   │   ├── VaultView.swift          # Vault file browser
-│   │   │   ├── PasswordEntryView.swift  # Password input
-│   │   │   └── VaultSettingsView.swift  # Vault configuration
-│   │   │
-│   │   └── Components/
-│   │       ├── ThumbnailView.swift      # Cached thumbnail
-│   │       ├── LoadingView.swift        # Loading indicator
-│   │       └── ErrorView.swift          # Error display
-│   │
-│   ├── ViewModels/
-│   │   ├── LibraryViewModel.swift       # Library business logic
-│   │   ├── ReaderViewModel.swift        # Reader state management
-│   │   └── VaultViewModel.swift         # Vault operations
+│   ├── Protocols/
+│   │   ├── ArchiveReader.swift          # Streaming extraction protocol (NEW)
+│   │   ├── FileServiceProtocol.swift
+│   │   └── (vault protocols for v0.4)
 │   │
 │   ├── Services/
 │   │   ├── FileService.swift            # File system operations
-│   │   ├── ArchiveService.swift         # Unified archive interface
-│   │   ├── LibArchiveWrapper.swift      # libarchive Swift bridge
-│   │   ├── PDFService.swift             # PDF extraction
-│   │   ├── ImageService.swift           # Image loading/caching
-│   │   ├── EncryptionService.swift      # AES encryption
-│   │   ├── KeychainService.swift        # Secure credential storage
-│   │   ├── ProgressService.swift        # Reading progress persistence
-│   │   └── ThumbnailService.swift       # Thumbnail generation/cache
+│   │   ├── ArchiveReaderFactory.swift   # Format routing (NEW)
+│   │   ├── ExtractionCache.swift        # Temp file management (NEW)
+│   │   └── Readers/                     # Archive backends (NEW)
+│   │       ├── ZIPFoundationReader.swift
+│   │       ├── PDFReader.swift
+│   │       └── LibArchiveReader.swift   # Feature-flagged
 │   │
-│   ├── Libraries/
-│   │   └── libarchive/
-│   │       ├── include/                 # C headers
-│   │       ├── lib/                     # Compiled library
-│   │       └── libarchive-Bridging.h    # Swift bridging header
+│   ├── ViewModels/
+│   │   ├── LibraryViewModel.swift
+│   │   └── ReaderViewModel.swift
+│   │
+│   ├── Views/
+│   │   ├── Library/
+│   │   │   ├── LibraryView.swift
+│   │   │   └── FileRowView.swift
+│   │   ├── Reader/
+│   │   │   ├── ReaderView.swift
+│   │   │   ├── PageView.swift           # Loads from file URL
+│   │   │   ├── ReaderControlsView.swift
+│   │   │   └── PageSliderView.swift
+│   │   ├── Vault/                       # Placeholder for v0.4
+│   │   └── Components/
+│   │       ├── ThumbnailView.swift
+│   │       ├── LoadingView.swift
+│   │       └── ErrorView.swift
 │   │
 │   ├── Utilities/
-│   │   ├── Extensions/
-│   │   │   ├── URL+Extensions.swift
-│   │   │   ├── Data+Extensions.swift
-│   │   │   ├── Image+Extensions.swift
-│   │   │   └── View+Extensions.swift
-│   │   ├── Constants.swift              # App-wide constants
-│   │   └── FileTypes.swift              # Supported format definitions
+│   │   ├── Constants.swift
+│   │   ├── FileTypes.swift              # Magic bytes detection
+│   │   └── ArchiveLimits.swift          # Security constants (NEW)
 │   │
 │   ├── Resources/
-│   │   ├── Assets.xcassets              # App icons, colors
-│   │   ├── Localizable.strings          # Localization
-│   │   └── Info.plist                   # App configuration
+│   │   ├── Assets.xcassets
+│   │   └── Info.plist
 │   │
 │   └── Preview Content/
-│       └── Preview Assets.xcassets
 │
-└── inkypanelsTests/
-    ├── ArchiveServiceTests.swift
-    ├── EncryptionServiceTests.swift
-    └── ProgressServiceTests.swift
+├── inkypanelsTests/
+│   └── Fixtures/                        # Test CBZ/PDF files
+│
+└── docs/
+    ├── inkypanels_plan.md               # This document
+    └── architecture_decisions.md        # ADRs
 ```
 
 ---
 
 ## Dependencies
 
-### Third-Party Libraries
+### Current (v0.1)
 
-| Library | Version | License | Purpose | App Store Safe |
-|---------|---------|---------|---------|----------------|
-| libarchive | 3.7+ | BSD | RAR, ZIP, 7z extraction | Yes |
-| ZIPFoundation | 0.9+ | MIT | ZIP handling (backup) | Yes |
+| Library | Version | License | Purpose | Status |
+|---------|---------|---------|---------|--------|
+| ZIPFoundation | 0.9+ | MIT | CBZ/ZIP extraction | **Active** |
+| swift-snapshot-testing | 1.15+ | MIT | View regression tests | Active |
 
-### Native Frameworks (No External Dependencies)
+### Native Frameworks
 
-| Framework | Purpose |
-|-----------|---------|
-| SwiftUI | User interface |
-| PDFKit | PDF rendering and page extraction |
-| CryptoKit | AES-256 encryption |
-| LocalAuthentication | Face ID / Touch ID |
-| QuickLook | File previews (optional) |
-| UniformTypeIdentifiers | File type handling |
+| Framework | Purpose | Status |
+|-----------|---------|--------|
+| SwiftUI | User interface | Active |
+| PDFKit | PDF page extraction | **Active** |
+| CryptoKit | AES-256 encryption | Planned (v0.4) |
+| LocalAuthentication | Face ID / Touch ID | Planned (v0.4) |
 
-### libarchive Format Support
+### Future (v0.3) - libarchive
 
-| Format | Extension | Read Support | Notes |
-|--------|-----------|--------------|-------|
-| ZIP | .zip, .cbz | Full | Standard comic format |
-| RAR 4.x | .rar, .cbr | Full | Legacy RAR format |
-| RAR 5.x | .rar, .cbr | None | Show user-friendly error |
-| 7-Zip | .7z, .cb7 | Full | LZMA compression |
-| TAR | .tar | Full | Uncompressed archives |
-| GZip | .tar.gz | Full | Compressed TAR |
+| Library | Version | License | Purpose | Status |
+|---------|---------|---------|---------|--------|
+| libarchive | 3.7+ | BSD | RAR/7z extraction | Infrastructure ready |
 
-### RAR5 Limitation
+**Current Format Support**:
 
-libarchive does not support RAR5 format (introduced 2013). This is a known limitation accepted for App Store compatibility.
+| Format | Extension | Status | Backend |
+|--------|-----------|--------|---------|
+| ZIP | .zip, .cbz | **Working** | ZIPFoundationReader |
+| PDF | .pdf | **Working** | PDFReader (PDFKit) |
+| RAR 4.x | .rar, .cbr | Placeholder | LibArchiveReader (needs build) |
+| RAR 5.x | .rar, .cbr | Detected, error shown | N/A |
+| 7-Zip | .7z, .cb7 | Placeholder | LibArchiveReader (needs build) |
 
-**Detection Strategy**:
+### RAR5 Detection (Implemented)
+
+```swift
+// FileTypes.swift
+static func isRAR5(data: Data) -> Bool {
+    let bytes = [UInt8](data.prefix(8))
+    return bytes == [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00]
+}
 ```
-RAR4 magic bytes: 52 61 72 21 1A 07 00
-RAR5 magic bytes: 52 61 72 21 1A 07 01 00
 
-If RAR5 detected:
-  Show message: "This comic uses RAR5 format which isn't currently supported.
-                 Please convert to CBZ format for best compatibility."
-```
+User sees: *"This comic uses RAR5 format which isn't currently supported. Please convert to CBZ format for best compatibility."*
 
 ---
 
@@ -444,35 +440,37 @@ let plaintext = try AES.GCM.open(sealedBox, using: key)
 
 ## Implementation Tasks
 
-### Phase 1A: Foundation
+### Phase 1A: Foundation ✅ Complete
 
-| # | Task | Priority | Estimated Complexity |
-|---|------|----------|---------------------|
-| 1 | Create Xcode project with SwiftUI template | High | Low |
-| 2 | Configure project settings (bundle ID, deployment target) | High | Low |
-| 3 | Set up folder structure as documented | High | Low |
-| 4 | Implement basic NavigationSplitView layout | High | Medium |
-| 5 | Create FileService for Documents folder access | High | Medium |
-| 6 | Build LibraryView with file listing | High | Medium |
-| 7 | Display image files (PNG, JPG, WEBP) | High | Low |
-| 8 | Create basic ReaderView with single image | High | Medium |
-| 9 | Implement swipe navigation between images | High | Medium |
-| 10 | Add tap zones for page navigation | High | Low |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Create Xcode project with SwiftUI template | ✅ | Using XcodeGen |
+| 2 | Configure project settings | ✅ | iPad-only, iOS 17+ |
+| 3 | Set up folder structure | ✅ | See Project Structure |
+| 4 | Implement NavigationSplitView layout | ✅ | Sidebar + detail |
+| 5 | Create FileService | ✅ | Actor-based |
+| 6 | Build LibraryView with file listing | ✅ | With sorting |
+| 7 | Display image files | ✅ | PNG, JPG, etc. |
+| 8 | Create basic ReaderView | ✅ | Full-screen |
+| 9 | Implement swipe navigation | ✅ | DragGesture |
+| 10 | Add tap zones | ✅ | Left/Center/Right |
 
-### Phase 1B: Archive Support
+### Phase 1B: Archive Support ✅ Complete (partial)
 
-| # | Task | Priority | Estimated Complexity |
-|---|------|----------|---------------------|
-| 11 | Integrate libarchive into project | High | High |
-| 12 | Create LibArchiveWrapper.swift bridging code | High | High |
-| 13 | Implement ArchiveService protocol | High | Medium |
-| 14 | Add ZIP/CBZ extraction | High | Medium |
-| 15 | Add RAR4/CBR extraction | High | Medium |
-| 16 | Implement RAR5 detection and error message | Medium | Low |
-| 17 | Add 7z/CB7 extraction | Medium | Low |
-| 18 | Create PDFService using PDFKit | High | Medium |
-| 19 | Implement page caching system | High | Medium |
-| 20 | Add extraction progress indicator | Medium | Low |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 11 | libarchive XCFramework | ⏸️ | Infrastructure ready, build pending |
+| 12 | LibArchiveReader wrapper | ✅ | Feature-flagged placeholder |
+| 13 | ArchiveReader protocol | ✅ | **Redesigned**: streaming extraction |
+| 14 | ZIP/CBZ extraction | ✅ | ZIPFoundationReader |
+| 15 | RAR4/CBR extraction | ⏸️ | Needs libarchive build |
+| 16 | RAR5 detection | ✅ | User-friendly error |
+| 17 | 7z/CB7 extraction | ⏸️ | Needs libarchive build |
+| 18 | PDFReader using PDFKit | ✅ | Page rendering |
+| 19 | Page caching system | ✅ | **Redesigned**: ExtractionCache with temp files |
+| 20 | Extraction progress indicator | ✅ | Loading status + progress bar |
+
+**Architecture Note**: Phase 1B was redesigned to use streaming extraction (temp files) instead of in-memory Data arrays. See ADR #14 in architecture_decisions.md.
 
 ### Phase 1C: Reader Experience
 
@@ -708,12 +706,13 @@ If publishing to App Store:
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2024-12-25 | Initial planning document |
+| 0.2 | 2024-12-26 | Updated for streaming architecture; marked Phase 1A-1B complete |
 
 ---
 
 ## Notes
 
-- Development environment: macOS with Xcode 15+
-- Primary testing device: iPad
-- This document should be updated as development progresses
-- All file paths are relative to project root unless specified
+- Development environment: macOS with Xcode 15+ (using XcodeGen)
+- Primary testing device: iPad Simulator (iPad Pro 13-inch M5)
+- GitHub: https://github.com/AgardnerAU/inkypanels
+- This document updated as development progresses

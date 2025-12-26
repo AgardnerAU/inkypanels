@@ -26,13 +26,11 @@ final class LibraryViewModel {
     // MARK: - Private Properties
 
     private let fileService: FileService
-    private let archiveService: ArchiveService
 
     // MARK: - Initialization
 
-    init(fileService: FileService = FileService(), archiveService: ArchiveService = ArchiveService()) {
+    init(fileService: FileService = FileService()) {
         self.fileService = fileService
-        self.archiveService = archiveService
         self.currentDirectory = fileService.comicsDirectory
     }
 
@@ -94,7 +92,9 @@ final class LibraryViewModel {
         guard file.fileType.isArchive || file.fileType == .pdf else { return nil }
 
         do {
-            return try await archiveService.pageCount(for: file.url)
+            let reader = try ArchiveReaderFactory.reader(for: file.url)
+            let entries = try await reader.listEntries()
+            return entries.count
         } catch {
             return nil
         }

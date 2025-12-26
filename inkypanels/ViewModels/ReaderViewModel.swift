@@ -1,31 +1,51 @@
 import SwiftUI
 
 /// ViewModel for the comic reader
+/// Uses streaming architecture - pages are extracted on-demand to temp files
 @MainActor
 @Observable
 final class ReaderViewModel {
 
     // MARK: - Published State
 
-    var pages: [ComicPage] = []
+    /// All page entries (metadata only, no image data)
+    var entries: [ArchiveEntry] = []
+
+    /// Currently displayed page index
     var currentPageIndex: Int = 0
+
+    /// URL of current page image (extracted on demand)
+    var currentPageURL: URL?
+
+    /// Loading state
     var isLoading: Bool = true
+
+    /// Error if loading failed
     var error: InkyPanelsError?
+
+    /// Whether to show navigation controls
     var showControls: Bool = true
+
+    /// Loading status message
+    var loadingStatus: String = "Loading..."
+
+    /// Extraction progress (0.0 to 1.0)
+    var extractionProgress: Double = 0
 
     // MARK: - Computed Properties
 
-    var currentPage: ComicPage? {
-        guard currentPageIndex >= 0 && currentPageIndex < pages.count else { return nil }
-        return pages[currentPageIndex]
+    /// Current entry (metadata)
+    var currentEntry: ArchiveEntry? {
+        guard currentPageIndex >= 0 && currentPageIndex < entries.count else { return nil }
+        return entries[currentPageIndex]
     }
 
     var totalPages: Int {
-        pages.count
+        entries.count
     }
 
     var canGoNext: Bool {
-        currentPageIndex < pages.count - 1
+        currentPageIndex < entries.count - 1
     }
 
     var canGoPrevious: Bool {
@@ -40,31 +60,64 @@ final class ReaderViewModel {
     // MARK: - Private Properties
 
     private let comic: ComicFile
-    private let archiveService: ArchiveService
+    private var reader: (any ArchiveReader)?
+    private let extractionCache: ExtractionCache
 
-    // Cache window: keep current page ± 3 in memory
-    private let cacheWindow = 3
+    /// Prefetch window size
+    private let prefetchWindow = 3
 
     // MARK: - Initialization
 
-    init(comic: ComicFile, archiveService: ArchiveService = ArchiveService()) {
+    init(comic: ComicFile, extractionCache: ExtractionCache = ExtractionCache()) {
         self.comic = comic
-        self.archiveService = archiveService
+        self.extractionCache = extractionCache
     }
 
     // MARK: - Public Methods
 
+    /// Load the comic and prepare for reading
     func loadComic() async {
         isLoading = true
         error = nil
+        loadingStatus = "Opening \(comic.name)..."
+        extractionProgress = 0
 
         do {
-            pages = try await archiveService.extractPages(from: comic.url)
+            // Create appropriate reader for this format
+            loadingStatus = "Preparing reader..."
+            extractionProgress = 0.1
+
+            reader = try ArchiveReaderFactory.reader(for: comic.url)
+
+            // Get entry list (metadata only, fast)
+            loadingStatus = "Reading archive..."
+            extractionProgress = 0.3
+
+            entries = try await reader!.listEntries()
+
+            loadingStatus = "Found \(entries.count) pages"
+            extractionProgress = 0.6
+
+            // Configure cache with reader and entries
+            await extractionCache.configure(reader: reader!, entries: entries)
 
             // Restore last reading position if available
             if let progress = comic.readingProgress {
-                currentPageIndex = min(progress.currentPage, pages.count - 1)
+                currentPageIndex = min(progress.currentPage, entries.count - 1)
             }
+
+            // Extract current page
+            loadingStatus = "Loading first page..."
+            extractionProgress = 0.8
+
+            await loadCurrentPage()
+
+            // Prefetch nearby pages in background
+            Task {
+                await extractionCache.prefetch(around: currentPageIndex)
+            }
+
+            extractionProgress = 1.0
         } catch let err as InkyPanelsError {
             error = err
         } catch {
@@ -77,18 +130,21 @@ final class ReaderViewModel {
     func goToNextPage() {
         guard canGoNext else { return }
         currentPageIndex += 1
+        Task { await loadCurrentPage() }
         saveProgress()
     }
 
     func goToPreviousPage() {
         guard canGoPrevious else { return }
         currentPageIndex -= 1
+        Task { await loadCurrentPage() }
         saveProgress()
     }
 
     func goToPage(_ index: Int) {
-        guard index >= 0 && index < pages.count else { return }
+        guard index >= 0 && index < entries.count else { return }
         currentPageIndex = index
+        Task { await loadCurrentPage() }
         saveProgress()
     }
 
@@ -102,13 +158,10 @@ final class ReaderViewModel {
         let tapZoneWidth = size.width * Constants.Reader.tapZoneWidth
 
         if location.x < tapZoneWidth {
-            // Left zone: previous page
             goToPreviousPage()
         } else if location.x > size.width - tapZoneWidth {
-            // Right zone: next page
             goToNextPage()
         } else {
-            // Center zone: toggle controls
             toggleControls()
         }
     }
@@ -121,10 +174,33 @@ final class ReaderViewModel {
         }
     }
 
+    /// Cleanup when done reading
+    func cleanup() async {
+        await extractionCache.clearAll()
+    }
+
     // MARK: - Private Methods
+
+    private func loadCurrentPage() async {
+        guard let entry = currentEntry else {
+            currentPageURL = nil
+            return
+        }
+
+        do {
+            currentPageURL = try await extractionCache.url(for: entry)
+
+            // Prefetch nearby pages
+            Task {
+                await extractionCache.prefetch(around: currentPageIndex)
+            }
+        } catch {
+            // Failed to load page - keep previous URL or show placeholder
+            currentPageURL = nil
+        }
+    }
 
     private func saveProgress() {
         // TODO: Save to ProgressService
-        // For now, just update the in-memory state
     }
 }
