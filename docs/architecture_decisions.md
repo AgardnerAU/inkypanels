@@ -3,7 +3,7 @@
 This document captures architectural decisions for the inkypanels project.
 
 > **Last Updated**: 2024-12-26
-> **Status**: Phase 1B complete - Streaming architecture implemented
+> **Status**: Phase 1C complete - Reader experience implemented
 
 ---
 
@@ -14,7 +14,7 @@ This document captures architectural decisions for the inkypanels project.
 | Phase 0: Foundation | Complete | Project structure, models, protocols |
 | Phase 0.1: Walking Skeleton | Complete | FileService, basic reader, navigation |
 | Phase 1B: Archive Support | Complete | PDF, streaming extraction, security |
-| Phase 1C: Reader Experience | Not Started | ZoomableImageView, progress persistence |
+| Phase 1C: Reader Experience | Complete | Zoom, pan, progress persistence, bookmarks |
 | Phase 1D: Secure Vault | Not Started | Encryption, biometrics |
 
 ---
@@ -432,17 +432,36 @@ protocol FileServiceProtocol: Sendable {
 }
 ```
 
-### Planned Protocols (v0.2+)
+### Implemented Protocols (v0.3)
 
 ```swift
-// MARK: - Progress Service
+// MARK: - Progress Service (Implemented in Phase 1C)
 
+@MainActor
 protocol ProgressServiceProtocol: Sendable {
-    func saveProgress(_ progress: ReadingProgress) async throws
-    func loadProgress(for comicId: UUID) async throws -> ReadingProgress?
-    func markAsCompleted(comicId: UUID) async throws
-    func deleteProgress(for comicId: UUID) async throws
+    func saveProgress(for filePath: String, currentPage: Int, totalPages: Int) async
+    func loadProgress(for filePath: String) async -> ProgressRecord?
+    func toggleBookmark(for filePath: String, at page: Int) async
+    func isBookmarked(for filePath: String, page: Int) async -> Bool
+    func bookmarks(for filePath: String) async -> [Int]
+    func deleteProgress(for filePath: String) async
 }
+
+// SwiftData Model
+@Model
+final class ProgressRecord {
+    @Attribute(.unique) var filePath: String
+    var currentPage: Int
+    var totalPages: Int
+    var lastReadDate: Date
+    var isCompleted: Bool
+    var bookmarks: [Int]
+}
+```
+
+### Planned Protocols (v0.4+)
+
+```swift
 
 // MARK: - Thumbnail Service
 
@@ -575,16 +594,19 @@ inkypanels/
 - [x] Phase 0: Foundation - Project structure, models, error types
 - [x] Phase 0.1: Walking Skeleton - FileService, basic reader flow
 - [x] Phase 1B: Archive Support - PDF, streaming architecture, security
+- [x] Phase 1C: Reader Experience - Zoom, pan, progress persistence, bookmarks
 
-### Next: Phase 1C - Reader Experience
+### Next: Phase 1D - Secure Vault
 
-1. Implement ZoomableImageView with pinch-zoom
-2. Add pan gesture while zoomed
-3. Create ProgressService for reading position persistence
-4. Restore last position on open
-5. Add bookmark functionality
+1. Create PasswordEntryView UI
+2. Implement KeychainService for password storage
+3. Add Face ID / Touch ID authentication
+4. Create EncryptionService with AES-256-GCM
+5. Implement vault manifest encryption
+6. Build VaultView file browser
+7. Add "Move to Vault" / "Remove from Vault" actions
 
-### Blocked: Phase 1B - libarchive Integration
+### Blocked: libarchive Integration
 
 libarchive infrastructure is ready (`LibArchiveReader` with feature flag). Requires:
 
@@ -601,3 +623,4 @@ libarchive infrastructure is ready (`LibArchiveReader` with feature flag). Requi
 |---------|------|---------|
 | 1.0 | 2024-12-25 | Initial architecture decisions |
 | 2.0 | 2024-12-26 | Major revision: streaming extraction, security hardening, build-time feature flags |
+| 2.1 | 2024-12-26 | Phase 1C complete: SwiftData progress persistence, ZoomableImageView, bookmarks |

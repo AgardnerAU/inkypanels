@@ -32,7 +32,7 @@
 
 ### Phase 1: MVP (Minimum Viable Product)
 
-> **Status**: Phase 1A-1B complete, 1C-1E in progress
+> **Status**: Phase 1A-1C complete, 1D-1E in progress
 
 #### Core Reading Experience
 - [x] Open and display image files (PNG, JPG, WEBP, TIFF)
@@ -43,8 +43,8 @@
 - [x] Full-screen reading mode
 - [x] Swipe navigation between pages
 - [x] Tap zones for navigation (left/right/center)
-- [ ] Pinch-to-zoom with pan
-- [ ] Auto-fit modes (fit width, fit height, fit screen)
+- [x] Pinch-to-zoom with pan
+- [x] Auto-fit modes (fit width, fit height, fit screen)
 - [x] Support both portrait and landscape orientations
 
 #### File Management
@@ -56,9 +56,9 @@
 - [x] Import via Files app / iTunes file sharing
 
 #### Reading Progress
-- [ ] Remember last page per comic
-- [ ] Bookmark support
-- [ ] Resume reading from last position
+- [x] Remember last page per comic
+- [x] Bookmark support
+- [x] Resume reading from last position
 - [ ] Track read/unread status
 
 #### Secure Vault
@@ -119,7 +119,7 @@
 
 ## Project Structure
 
-> **Updated**: 2024-12-26 - Reflects streaming extraction architecture
+> **Updated**: 2024-12-26 - Reflects Phase 1C completion (reader experience)
 
 ```
 inkypanels/
@@ -128,15 +128,15 @@ inkypanels/
 ├── Package.swift                        # SPM for testing
 ├── inkypanels/
 │   ├── App/
-│   │   ├── InkyPanelsApp.swift          # App entry point
+│   │   ├── InkyPanelsApp.swift          # App entry point + SwiftData container
 │   │   ├── ContentView.swift            # Root navigation (sidebar)
 │   │   └── AppState.swift               # Shared observable state
 │   │
 │   ├── Models/
 │   │   ├── ComicFile.swift              # Comic file representation
-│   │   ├── ArchiveEntry.swift           # Page metadata (NEW)
-│   │   ├── ComicPage.swift              # Legacy, being phased out
-│   │   ├── ReadingProgress.swift        # Progress tracking model
+│   │   ├── ArchiveEntry.swift           # Page metadata
+│   │   ├── ProgressRecord.swift         # SwiftData model for progress (NEW)
+│   │   ├── ReadingProgress.swift        # Progress tracking (legacy struct)
 │   │   └── Errors/
 │   │       ├── InkyPanelsError.swift    # Top-level error enum
 │   │       ├── ArchiveError.swift
@@ -145,22 +145,24 @@ inkypanels/
 │   │       └── VaultError.swift
 │   │
 │   ├── Protocols/
-│   │   ├── ArchiveReader.swift          # Streaming extraction protocol (NEW)
+│   │   ├── ArchiveReader.swift          # Streaming extraction protocol
+│   │   ├── ProgressServiceProtocol.swift # Progress persistence
 │   │   ├── FileServiceProtocol.swift
 │   │   └── (vault protocols for v0.4)
 │   │
 │   ├── Services/
 │   │   ├── FileService.swift            # File system operations
-│   │   ├── ArchiveReaderFactory.swift   # Format routing (NEW)
-│   │   ├── ExtractionCache.swift        # Temp file management (NEW)
-│   │   └── Readers/                     # Archive backends (NEW)
+│   │   ├── ProgressService.swift        # SwiftData progress persistence (NEW)
+│   │   ├── ArchiveReaderFactory.swift   # Format routing
+│   │   ├── ExtractionCache.swift        # Temp file management
+│   │   └── Readers/                     # Archive backends
 │   │       ├── ZIPFoundationReader.swift
 │   │       ├── PDFReader.swift
 │   │       └── LibArchiveReader.swift   # Feature-flagged
 │   │
 │   ├── ViewModels/
 │   │   ├── LibraryViewModel.swift
-│   │   └── ReaderViewModel.swift
+│   │   └── ReaderViewModel.swift        # Includes progress + bookmark logic
 │   │
 │   ├── Views/
 │   │   ├── Library/
@@ -168,11 +170,12 @@ inkypanels/
 │   │   │   └── FileRowView.swift
 │   │   ├── Reader/
 │   │   │   ├── ReaderView.swift
-│   │   │   ├── PageView.swift           # Loads from file URL
-│   │   │   ├── ReaderControlsView.swift
+│   │   │   ├── PageView.swift           # Wraps ZoomableImageView
+│   │   │   ├── ReaderControlsView.swift # Includes fit mode + bookmark
 │   │   │   └── PageSliderView.swift
 │   │   ├── Vault/                       # Placeholder for v0.4
 │   │   └── Components/
+│   │       ├── ZoomableImageView.swift  # Pinch-zoom + pan (NEW)
 │   │       ├── ThumbnailView.swift
 │   │       ├── LoadingView.swift
 │   │       └── ErrorView.swift
@@ -180,7 +183,7 @@ inkypanels/
 │   ├── Utilities/
 │   │   ├── Constants.swift
 │   │   ├── FileTypes.swift              # Magic bytes detection
-│   │   └── ArchiveLimits.swift          # Security constants (NEW)
+│   │   └── ArchiveLimits.swift          # Security constants
 │   │
 │   ├── Resources/
 │   │   ├── Assets.xcassets
@@ -472,20 +475,25 @@ let plaintext = try AES.GCM.open(sealedBox, using: key)
 
 **Architecture Note**: Phase 1B was redesigned to use streaming extraction (temp files) instead of in-memory Data arrays. See ADR #14 in architecture_decisions.md.
 
-### Phase 1C: Reader Experience
+### Phase 1C: Reader Experience ✅ Complete
 
-| # | Task | Priority | Estimated Complexity |
-|---|------|----------|---------------------|
-| 21 | Implement ZoomableImageView with pinch-zoom | High | High |
-| 22 | Add pan gesture while zoomed | High | Medium |
-| 23 | Create auto-fit modes (width, height, screen) | High | Medium |
-| 24 | Build ReaderControlsView overlay | High | Medium |
-| 25 | Add page slider/scrubber | Medium | Medium |
-| 26 | Implement full-screen mode | High | Low |
-| 27 | Create ProgressService for persistence | High | Medium |
-| 28 | Save reading progress on page change | High | Low |
-| 29 | Restore last position on open | High | Low |
-| 30 | Add bookmark functionality | Medium | Medium |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 21 | Implement ZoomableImageView with pinch-zoom | ✅ | 1x-5x zoom with MagnifyGesture |
+| 22 | Add pan gesture while zoomed | ✅ | DragGesture when scale > 1.0 |
+| 23 | Create auto-fit modes (width, height, screen) | ✅ | FitMode enum with menu selector |
+| 24 | Build ReaderControlsView overlay | ✅ | Top bar + bottom slider |
+| 25 | Add page slider/scrubber | ✅ | PageSliderView already existed |
+| 26 | Implement full-screen mode | ✅ | Already implemented in Phase 1A |
+| 27 | Create ProgressService for persistence | ✅ | SwiftData with ProgressRecord model |
+| 28 | Save reading progress on page change | ✅ | Saves on every navigation |
+| 29 | Restore last position on open | ✅ | Loads from ProgressRecord |
+| 30 | Add bookmark functionality | ✅ | Toggle button + persistence |
+
+**Implementation Notes**:
+- `ZoomableImageView` supports double-tap to toggle between 1x and 2.5x zoom
+- Progress uses file path as stable identifier (persists across app launches)
+- Bookmarks stored as page indices in `ProgressRecord.bookmarks` array
 
 ### Phase 1D: Secure Vault
 
@@ -707,6 +715,7 @@ If publishing to App Store:
 |---------|------|---------|
 | 0.1 | 2024-12-25 | Initial planning document |
 | 0.2 | 2024-12-26 | Updated for streaming architecture; marked Phase 1A-1B complete |
+| 0.3 | 2024-12-26 | Phase 1C complete: zoom, pan, fit modes, progress persistence, bookmarks |
 
 ---
 
