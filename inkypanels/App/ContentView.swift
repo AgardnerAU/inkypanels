@@ -4,6 +4,9 @@ import SwiftUI
 struct ContentView: View {
     @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
     @State private var selectedTab: Tab? = .library
+    @Environment(AppState.self) private var appState: AppState?
+    @State private var showOpenedFileReader = false
+    @State private var openedComic: ComicFile?
 
     enum Tab: String, Hashable {
         case library = "Library"
@@ -61,6 +64,35 @@ struct ContentView: View {
             // If Recent tab is hidden and currently selected, switch to Library
             if !newValue && selectedTab == .recent {
                 selectedTab = .library
+            }
+        }
+        .onChange(of: appState?.fileToOpen) { _, newFile in
+            // Handle file opened from external source (Files app, Share sheet, etc.)
+            if let comic = newFile {
+                openedComic = comic
+                showOpenedFileReader = true
+                // Clear the trigger
+                appState?.fileToOpen = nil
+            }
+        }
+        .fullScreenCover(isPresented: $showOpenedFileReader) {
+            // Clean up security-scoped resource when dismissed
+            if let url = appState?.openedFileURL {
+                url.stopAccessingSecurityScopedResource()
+                appState?.openedFileURL = nil
+            }
+        } content: {
+            if let comic = openedComic {
+                NavigationStack {
+                    ReaderView(comic: comic)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button("Done") {
+                                    showOpenedFileReader = false
+                                }
+                            }
+                        }
+                }
             }
         }
     }

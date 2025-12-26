@@ -4,6 +4,9 @@ import SwiftUI
 /// Single source of truth for cross-cutting concerns.
 @Observable
 final class AppState {
+    /// Shared instance for global access
+    static let shared = AppState()
+
     /// All comic files in the library
     var libraryFiles: [ComicFile] = []
 
@@ -21,6 +24,12 @@ final class AppState {
 
     /// Global error for display
     var currentError: InkyPanelsError?
+
+    /// File opened from external source (Files app, Share sheet, etc.)
+    var openedFileURL: URL?
+
+    /// Comic file to open immediately (created from openedFileURL)
+    var fileToOpen: ComicFile?
 }
 
 /// Represents an active reading session
