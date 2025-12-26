@@ -128,6 +128,9 @@ final class ReaderViewModel {
                 await extractionCache.prefetch(around: currentPageIndex)
             }
 
+            // Save progress immediately so file appears in Recent tab
+            saveProgress()
+
             extractionProgress = 1.0
         } catch let err as InkyPanelsError {
             error = err
