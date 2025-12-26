@@ -32,7 +32,7 @@ actor ZIPFoundationReader: ArchiveReader {
 
         // Open archive
         do {
-            self.archive = try Archive(url: url, accessMode: .read)
+            self.archive = try Archive(url: url, accessMode: .read, pathEncoding: nil)
         } catch {
             throw InkyPanelsError.archive(.invalidArchive)
         }
@@ -59,9 +59,8 @@ actor ZIPFoundationReader: ArchiveReader {
 
             let path = entry.path
 
-            // Security: validate path
-            if let error = ArchiveLimits.validatePath(path) {
-                // Log but skip malicious entries rather than failing entire archive
+            // Security: validate path - skip malicious entries
+            if ArchiveLimits.validatePath(path) != nil {
                 continue
             }
 

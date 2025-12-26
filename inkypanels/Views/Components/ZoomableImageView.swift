@@ -40,6 +40,7 @@ struct ZoomableImageView: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var imageSize: CGSize = .zero
+    @State private var lastContainerSize: CGSize = .zero
 
     // MARK: - Constants
 
@@ -88,10 +89,26 @@ struct ZoomableImageView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
+            .onChange(of: geometry.size) { oldSize, newSize in
+                handleContainerSizeChange(from: oldSize, to: newSize)
+            }
+            .onAppear {
+                lastContainerSize = geometry.size
+            }
         }
         .onChange(of: imageURL) { _, _ in
             resetZoom()
         }
+    }
+
+    private func handleContainerSizeChange(from oldSize: CGSize, to newSize: CGSize) {
+        // Reset zoom on significant size change (orientation change)
+        let widthChanged = abs(oldSize.width - newSize.width) > 50
+        let heightChanged = abs(oldSize.height - newSize.height) > 50
+        if widthChanged || heightChanged {
+            resetZoom()
+        }
+        lastContainerSize = newSize
     }
 
     // MARK: - Image Loading

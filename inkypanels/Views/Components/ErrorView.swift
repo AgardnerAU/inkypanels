@@ -16,6 +16,15 @@ struct ErrorView: View {
         if let archiveError = error as? ArchiveError {
             return archiveError.recoverySuggestion
         }
+        if let vaultError = error as? VaultError {
+            return vaultError.recoverySuggestion
+        }
+        if let readerError = error as? ReaderError {
+            return readerError.recoverySuggestion
+        }
+        if let fileSystemError = error as? FileSystemError {
+            return fileSystemError.recoverySuggestion
+        }
         return nil
     }
 
@@ -24,9 +33,27 @@ struct ErrorView: View {
             switch inkyError {
             case .archive(.rar5NotSupported):
                 return "doc.badge.gearshape"
+            case .vault:
+                return "lock.trianglebadge.exclamationmark"
+            case .fileSystem(.permissionDenied):
+                return "lock.shield"
+            case .fileSystem(.insufficientStorage):
+                return "externaldrive.badge.xmark"
             default:
                 return "exclamationmark.triangle"
             }
+        }
+        if error is VaultError {
+            return "lock.trianglebadge.exclamationmark"
+        }
+        if error is FileSystemError {
+            return "folder.badge.questionmark"
+        }
+        if error is ArchiveError {
+            return "doc.zipper"
+        }
+        if error is ReaderError {
+            return "photo.badge.exclamationmark"
         }
         return "exclamationmark.triangle"
     }
