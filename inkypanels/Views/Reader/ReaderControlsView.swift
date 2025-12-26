@@ -4,6 +4,9 @@ struct ReaderControlsView: View {
     let comic: ComicFile
     @Binding var currentPage: Int
     let totalPages: Int
+    @Binding var fitMode: FitMode
+    var isBookmarked: Bool = false
+    var onToggleBookmark: (() -> Void)?
     let onClose: () -> Void
 
     var body: some View {
@@ -17,7 +20,7 @@ struct ReaderControlsView: View {
     // MARK: - Top Bar
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 12) {
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.title2)
@@ -39,17 +42,37 @@ struct ReaderControlsView: View {
 
             Spacer()
 
+            fitModeMenu
+
             Button {
-                // TODO: Toggle bookmark
+                onToggleBookmark?()
             } label: {
-                Image(systemName: "bookmark")
+                Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
                     .font(.title2)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(isBookmarked ? .yellow : .white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(.ultraThinMaterial))
             }
         }
         .padding()
+    }
+
+    private var fitModeMenu: some View {
+        Menu {
+            ForEach(FitMode.allCases) { mode in
+                Button {
+                    fitMode = mode
+                } label: {
+                    Label(mode.rawValue, systemImage: mode.icon)
+                }
+            }
+        } label: {
+            Image(systemName: fitMode.icon)
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(.ultraThinMaterial))
+        }
     }
 
     // MARK: - Bottom Bar
@@ -101,6 +124,9 @@ struct ReaderControlsView: View {
             ),
             currentPage: .constant(5),
             totalPages: 100,
+            fitMode: .constant(.fit),
+            isBookmarked: true,
+            onToggleBookmark: { print("Bookmark toggled") },
             onClose: { print("Close tapped") }
         )
     }

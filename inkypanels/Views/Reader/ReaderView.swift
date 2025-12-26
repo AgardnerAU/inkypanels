@@ -4,7 +4,9 @@ struct ReaderView: View {
     let comic: ComicFile
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var viewModel: ReaderViewModel
+    @State private var fitMode: FitMode = .fit
 
     init(comic: ComicFile) {
         self.comic = comic
@@ -36,6 +38,7 @@ struct ReaderView: View {
         .statusBarHidden(!viewModel.showControls)
         #endif
         .task {
+            viewModel.configureProgressService(modelContext: modelContext)
             await viewModel.loadComic()
         }
         .onDisappear {
@@ -135,14 +138,17 @@ struct ReaderView: View {
             if let entry = viewModel.currentEntry {
                 PageView(
                     entry: entry,
-                    imageURL: viewModel.currentPageURL
+                    imageURL: viewModel.currentPageURL,
+                    fitMode: fitMode,
+                    onTap: { location, size in
+                        viewModel.handleTap(at: location, in: size)
+                    }
                 )
                 .id(entry.id)
                 .transition(.opacity)
+                .gesture(swipeGesture)
             }
         }
-        .gesture(tapGesture(in: geometry))
-        .gesture(swipeGesture)
         .animation(.easeInOut(duration: 0.2), value: viewModel.currentPageIndex)
     }
 
@@ -156,19 +162,15 @@ struct ReaderView: View {
                 set: { viewModel.goToPage($0) }
             ),
             totalPages: viewModel.totalPages,
+            fitMode: $fitMode,
+            isBookmarked: viewModel.isCurrentPageBookmarked,
+            onToggleBookmark: { viewModel.toggleBookmark() },
             onClose: { dismiss() }
         )
         .transition(.opacity)
     }
 
     // MARK: - Gestures
-
-    private func tapGesture(in geometry: GeometryProxy) -> some Gesture {
-        SpatialTapGesture()
-            .onEnded { value in
-                viewModel.handleTap(at: value.location, in: geometry.size)
-            }
-    }
 
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 50)

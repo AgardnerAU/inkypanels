@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// ViewModel for the comic reader
 /// Uses streaming architecture - pages are extracted on-demand to temp files
@@ -32,6 +33,9 @@ final class ReaderViewModel {
     /// Extraction progress (0.0 to 1.0)
     var extractionProgress: Double = 0
 
+    /// Whether the current page is bookmarked
+    var isCurrentPageBookmarked: Bool = false
+
     // MARK: - Computed Properties
 
     /// Current entry (metadata)
@@ -62,6 +66,7 @@ final class ReaderViewModel {
     private let comic: ComicFile
     private var reader: (any ArchiveReader)?
     private let extractionCache: ExtractionCache
+    private var progressService: ProgressService?
 
     /// Prefetch window size
     private let prefetchWindow = 3
@@ -71,6 +76,11 @@ final class ReaderViewModel {
     init(comic: ComicFile, extractionCache: ExtractionCache = ExtractionCache()) {
         self.comic = comic
         self.extractionCache = extractionCache
+    }
+
+    /// Configure progress service (call from view with modelContext)
+    func configureProgressService(modelContext: ModelContext) {
+        self.progressService = ProgressService(modelContext: modelContext)
     }
 
     // MARK: - Public Methods
@@ -102,8 +112,9 @@ final class ReaderViewModel {
             await extractionCache.configure(reader: reader!, entries: entries)
 
             // Restore last reading position if available
-            if let progress = comic.readingProgress {
-                currentPageIndex = min(progress.currentPage, entries.count - 1)
+            if let savedProgress = await progressService?.loadProgress(for: comic.url.path) {
+                currentPageIndex = min(savedProgress.currentPage, entries.count - 1)
+                isCurrentPageBookmarked = savedProgress.bookmarks.contains(currentPageIndex)
             }
 
             // Extract current page
@@ -132,6 +143,7 @@ final class ReaderViewModel {
         currentPageIndex += 1
         Task { await loadCurrentPage() }
         saveProgress()
+        updateBookmarkState()
     }
 
     func goToPreviousPage() {
@@ -139,6 +151,7 @@ final class ReaderViewModel {
         currentPageIndex -= 1
         Task { await loadCurrentPage() }
         saveProgress()
+        updateBookmarkState()
     }
 
     func goToPage(_ index: Int) {
@@ -146,6 +159,7 @@ final class ReaderViewModel {
         currentPageIndex = index
         Task { await loadCurrentPage() }
         saveProgress()
+        updateBookmarkState()
     }
 
     func toggleControls() {
@@ -201,6 +215,29 @@ final class ReaderViewModel {
     }
 
     private func saveProgress() {
-        // TODO: Save to ProgressService
+        Task {
+            await progressService?.saveProgress(
+                for: comic.url.path,
+                currentPage: currentPageIndex,
+                totalPages: entries.count
+            )
+        }
+    }
+
+    private func updateBookmarkState() {
+        Task {
+            isCurrentPageBookmarked = await progressService?.isBookmarked(
+                for: comic.url.path,
+                page: currentPageIndex
+            ) ?? false
+        }
+    }
+
+    /// Toggle bookmark for the current page
+    func toggleBookmark() {
+        Task {
+            await progressService?.toggleBookmark(for: comic.url.path, at: currentPageIndex)
+            isCurrentPageBookmarked.toggle()
+        }
     }
 }
