@@ -147,11 +147,13 @@ struct ReaderView: View {
                     readingDirection: viewModel.settings.readingDirection,
                     onTap: { location, size in
                         viewModel.handleTap(at: location, in: size)
+                    },
+                    onSwipe: { translation in
+                        viewModel.handleSwipe(translation: translation)
                     }
                 )
                 .id("\(viewModel.currentEntry?.id ?? "")-dual")
                 .transition(.opacity)
-                .gesture(swipeGesture)
             } else if let entry = viewModel.currentEntry {
                 // Single page view
                 PageView(
@@ -160,11 +162,13 @@ struct ReaderView: View {
                     fitMode: fitMode,
                     onTap: { location, size in
                         viewModel.handleTap(at: location, in: size)
+                    },
+                    onSwipe: { translation in
+                        viewModel.handleSwipe(translation: translation)
                     }
                 )
                 .id(entry.id)
                 .transition(.opacity)
-                .gesture(swipeGesture)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: viewModel.currentPageIndex)
@@ -174,6 +178,10 @@ struct ReaderView: View {
             viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
         }
         .onAppear {
+            let isLandscape = geometry.size.width > geometry.size.height
+            viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
+        }
+        .onChange(of: viewModel.settings.pageLayout) { _, _ in
             let isLandscape = geometry.size.width > geometry.size.height
             viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
         }
@@ -197,14 +205,6 @@ struct ReaderView: View {
         .transition(.opacity)
     }
 
-    // MARK: - Gestures
-
-    private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 50)
-            .onEnded { value in
-                viewModel.handleSwipe(translation: value.translation.width)
-            }
-    }
 }
 
 #Preview {

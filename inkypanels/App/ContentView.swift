@@ -3,7 +3,9 @@ import SwiftUI
 
 struct ContentView: View {
     @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
+    @AppStorage(Constants.UserDefaultsKey.autoHideSidebar) private var autoHideSidebar = false
     @State private var selectedTab: Tab? = .library
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(AppState.self) private var appState: AppState?
     @State private var showOpenedFileReader = false
     @State private var openedComic: ComicFile?
@@ -36,7 +38,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List {
                 ForEach(visibleTabs, id: \.self) { tab in
                     Button {
@@ -92,6 +94,16 @@ struct ContentView: View {
                             }
                         }
                 }
+            }
+        }
+        .onAppear {
+            // Ensure sidebar is visible by default when app launches
+            columnVisibility = .all
+        }
+        .onChange(of: autoHideSidebar) { _, newValue in
+            // When auto-hide is disabled, show the sidebar
+            if !newValue {
+                columnVisibility = .all
             }
         }
     }
@@ -319,10 +331,19 @@ struct FavouriteFileRowView: View {
 struct SettingsView: View {
     @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
     @AppStorage(Constants.UserDefaultsKey.hideVaultFromRecent) private var hideVaultFromRecent = false
+    @AppStorage(Constants.UserDefaultsKey.autoHideSidebar) private var autoHideSidebar = false
 
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Toggle("Auto-hide Sidebar", isOn: $autoHideSidebar)
+                } header: {
+                    Text("Sidebar")
+                } footer: {
+                    Text("When disabled, the sidebar remains visible. When enabled, it can be manually toggled.")
+                }
+
                 Section {
                     Toggle("Show Recent Files Tab", isOn: $showRecentFiles)
                     Toggle("Hide Vault Files from Recent", isOn: $hideVaultFromRecent)

@@ -99,9 +99,6 @@ final class ReaderViewModel {
     private let extractionCache: ExtractionCache
     private var progressService: ProgressService?
 
-    /// Prefetch window size
-    private let prefetchWindow = 3
-
     // MARK: - Initialization
 
     init(comic: ComicFile, extractionCache: ExtractionCache = ExtractionCache()) {
@@ -148,16 +145,15 @@ final class ReaderViewModel {
                 isCurrentPageBookmarked = savedProgress.bookmarks.contains(currentPageIndex)
             }
 
-            // Extract current page
-            loadingStatus = "Loading first page..."
+            // Extract current page and immediate neighbors concurrently
+            loadingStatus = "Loading pages..."
             extractionProgress = 0.8
 
-            await loadCurrentPage()
+            // Start immediate prefetch (current page + neighbors) - this is fast
+            await extractionCache.prefetchImmediate(around: currentPageIndex)
 
-            // Prefetch nearby pages in background
-            Task {
-                await extractionCache.prefetch(around: currentPageIndex)
-            }
+            // Now load the current page URL (should be instant since we just prefetched)
+            await loadCurrentPage()
 
             // Save progress immediately so file appears in Recent tab
             saveProgress()
@@ -259,6 +255,7 @@ final class ReaderViewModel {
         }
 
         do {
+            // Load current page - this will be fast if already cached
             currentPageURL = try await extractionCache.url(for: entry)
 
             // Check if current page is a wide spread (smart detection)
@@ -275,8 +272,10 @@ final class ReaderViewModel {
                 secondPageURL = nil
             }
 
-            // Prefetch nearby pages
-            Task {
+            // Start two-tier prefetch in background (non-blocking)
+            // Tier 1: Immediate neighbors loaded quickly
+            // Tier 2: Larger window loaded progressively in background
+            Task.detached(priority: .utility) { [extractionCache, currentPageIndex] in
                 await extractionCache.prefetch(around: currentPageIndex)
             }
         } catch {

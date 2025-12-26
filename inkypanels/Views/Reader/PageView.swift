@@ -17,18 +17,23 @@ struct PageView: View {
     /// Called when user taps (only when not zoomed)
     var onTap: ((CGPoint, CGSize) -> Void)?
 
+    /// Called when user swipes horizontally (only when not zoomed)
+    var onSwipe: ((CGFloat) -> Void)?
+
     init(
         entry: ArchiveEntry,
         imageURL: URL? = nil,
         imageData: Data? = nil,
         fitMode: FitMode = .fit,
-        onTap: ((CGPoint, CGSize) -> Void)? = nil
+        onTap: ((CGPoint, CGSize) -> Void)? = nil,
+        onSwipe: ((CGFloat) -> Void)? = nil
     ) {
         self.entry = entry
         self.imageURL = imageURL
         self.imageData = imageData
         self.fitMode = fitMode
         self.onTap = onTap
+        self.onSwipe = onSwipe
     }
 
     var body: some View {
@@ -36,7 +41,8 @@ struct PageView: View {
             imageURL: imageURL,
             imageData: imageData,
             fitMode: fitMode,
-            onTap: onTap
+            onTap: onTap,
+            onSwipe: onSwipe
         )
     }
 }

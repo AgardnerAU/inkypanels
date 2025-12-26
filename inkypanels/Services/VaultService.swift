@@ -111,10 +111,9 @@ actor VaultService: @preconcurrency VaultServiceProtocol {
             throw VaultError.biometricNotAvailable
         }
 
-        // Authenticate with biometric
-        try await keychainService.authenticateWithBiometric(reason: "Unlock your vault")
-
         // Retrieve derived key (biometric protected)
+        // The keychain item was stored with biometric protection, so accessing it
+        // will automatically trigger the biometric prompt - no need for separate auth
         guard let keyData = try await keychainService.retrieve(
             for: KeychainService.Keys.derivedKey,
             prompt: "Unlock your vault"

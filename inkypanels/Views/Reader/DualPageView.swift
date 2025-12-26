@@ -10,6 +10,7 @@ struct DualPageView: View {
     let showGap: Bool
     let readingDirection: ReadingDirection
     var onTap: ((CGPoint, CGSize) -> Void)?
+    var onSwipe: ((CGFloat) -> Void)?
 
     private let gapWidth: CGFloat = 4
 
@@ -68,7 +69,8 @@ struct DualPageView: View {
                     adjustedX = location.x + width + (showGap ? gapWidth : 0)
                 }
                 onTap?(CGPoint(x: adjustedX, y: location.y), containerSize)
-            }
+            },
+            onSwipe: onSwipe
         )
         .frame(width: width)
         .clipped()

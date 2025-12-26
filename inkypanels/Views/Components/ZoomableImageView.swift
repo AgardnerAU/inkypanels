@@ -33,6 +33,10 @@ struct ZoomableImageView: View {
     /// Called when user taps (not drags/pinches) - only when at 1x zoom
     var onTap: ((CGPoint, CGSize) -> Void)?
 
+    /// Called when user swipes horizontally - only when at 1x zoom
+    /// Parameter is the horizontal translation (negative = swipe left, positive = swipe right)
+    var onSwipe: ((CGFloat) -> Void)?
+
     // MARK: - State
 
     @State private var currentScale: CGFloat = 1.0
@@ -206,7 +210,7 @@ struct ZoomableImageView: View {
     }
 
     private func dragGesture(containerSize: CGSize) -> some Gesture {
-        DragGesture()
+        DragGesture(minimumDistance: 20)
             .onChanged { value in
                 // Only allow panning when zoomed in
                 guard currentScale > 1.0 else { return }
@@ -216,9 +220,14 @@ struct ZoomableImageView: View {
                     height: lastOffset.height + value.translation.height
                 )
             }
-            .onEnded { _ in
-                lastOffset = offset
-                constrainOffset(containerSize: containerSize)
+            .onEnded { value in
+                // When not zoomed, treat as swipe for page navigation
+                if currentScale <= 1.0 {
+                    onSwipe?(value.translation.width)
+                } else {
+                    lastOffset = offset
+                    constrainOffset(containerSize: containerSize)
+                }
             }
     }
 

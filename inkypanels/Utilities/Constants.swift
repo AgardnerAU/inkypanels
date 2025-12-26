@@ -25,6 +25,16 @@ enum Constants {
         static let prefetchPageCount = 3
         static let thumbnailCacheSizeLimit: Int64 = 500 * 1024 * 1024 // 500MB
         static let defaultThumbnailSize = CGSize(width: 200, height: 280)
+
+        // Two-tier page caching
+        /// Pages to load immediately with high priority (current ± this value)
+        static let immediateWindowSize = 2
+        /// Pages to load in background (current ± this value)
+        static let backgroundWindowSize = 10
+        /// Maximum concurrent page extractions
+        static let maxConcurrentExtractions = 4
+        /// Total pages to keep in cache before eviction
+        static let maxCachedPages = 25
     }
 
     /// Security settings
@@ -53,5 +63,6 @@ enum Constants {
         static let thumbnailSize = "thumbnailSize"
         static let showRecentFiles = "showRecentFiles"
         static let hideVaultFromRecent = "hideVaultFromRecent"
+        static let autoHideSidebar = "autoHideSidebar"
     }
 }
