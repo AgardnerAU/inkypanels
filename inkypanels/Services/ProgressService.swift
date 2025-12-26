@@ -112,4 +112,19 @@ final class ProgressService: ProgressServiceProtocol {
             print("Failed to delete progress: \(error)")
         }
     }
+
+    /// Get recently read files sorted by last read date
+    func recentFiles(limit: Int = 20) async -> [ProgressRecord] {
+        var descriptor = FetchDescriptor<ProgressRecord>(
+            sortBy: [SortDescriptor(\ProgressRecord.lastReadDate, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            print("Failed to fetch recent files: \(error)")
+            return []
+        }
+    }
 }

@@ -8,6 +8,6 @@ struct InkyPanelsApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: ProgressRecord.self)
+        .modelContainer(for: [ProgressRecord.self, FavouriteRecord.self])
     }
 }

@@ -1,9 +1,11 @@
+import SwiftData
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
     @State private var selectedTab: Tab? = .library
 
-    enum Tab: String, CaseIterable, Hashable {
+    enum Tab: String, Hashable {
         case library = "Library"
         case recent = "Recent"
         case vault = "Vault"
@@ -19,10 +21,19 @@ struct ContentView: View {
         }
     }
 
+    private var visibleTabs: [Tab] {
+        var tabs: [Tab] = [.library]
+        if showRecentFiles {
+            tabs.append(.recent)
+        }
+        tabs.append(contentsOf: [.vault, .settings])
+        return tabs
+    }
+
     var body: some View {
         NavigationSplitView {
             List {
-                ForEach(Tab.allCases, id: \.self) { tab in
+                ForEach(visibleTabs, id: \.self) { tab in
                     Button {
                         selectedTab = tab
                     } label: {
@@ -46,23 +57,123 @@ struct ContentView: View {
                 LibraryView()
             }
         }
+        .onChange(of: showRecentFiles) { _, newValue in
+            // If Recent tab is hidden and currently selected, switch to Library
+            if !newValue && selectedTab == .recent {
+                selectedTab = .library
+            }
+        }
+    }
+}
+
+// MARK: - Recent Files View
+
+struct RecentFilesView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var viewModel = RecentFilesViewModel()
+    @State private var navigationPath = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $navigationPath) {
+            Group {
+                if viewModel.isLoading {
+                    LoadingView("Loading recent files...")
+                } else if viewModel.recentFiles.isEmpty {
+                    ContentUnavailableView(
+                        "No Recent Files",
+                        systemImage: "clock",
+                        description: Text("Comics you open will appear here")
+                    )
+                } else {
+                    recentFilesList
+                }
+            }
+            .navigationTitle("Recent")
+            .navigationDestination(for: ComicFile.self) { file in
+                ReaderView(comic: file)
+            }
+            .refreshable {
+                await viewModel.loadRecentFiles()
+            }
+        }
+        .task {
+            viewModel.configureService(modelContext: modelContext)
+            await viewModel.loadRecentFiles()
+        }
+    }
+
+    private var recentFilesList: some View {
+        List {
+            ForEach(viewModel.recentFiles, id: \.file.id) { item in
+                NavigationLink(value: item.file) {
+                    RecentFileRowView(file: item.file, progress: item.progress)
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        Task { await viewModel.clearRecent(item.progress) }
+                    } label: {
+                        Label("Remove", systemImage: "trash")
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+}
+
+struct RecentFileRowView: View {
+    let file: ComicFile
+    let progress: ProgressRecord
+
+    private let thumbnailSize = CGSize(width: 60, height: 80)
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ThumbnailView(file: file, size: thumbnailSize)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(file.name)
+                    .font(.headline)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    // Progress indicator
+                    Text("\(progress.currentPage + 1) of \(progress.totalPages)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if progress.isCompleted {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                    }
+                }
+
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.secondary.opacity(0.2))
+
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.accentColor)
+                            .frame(width: geometry.size.width * (progress.percentComplete / 100))
+                    }
+                }
+                .frame(height: 4)
+
+                // Last read date
+                Text(progress.lastReadDate, style: .relative)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
 // MARK: - Placeholder Views
-
-struct RecentFilesView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "No Recent Files",
-                systemImage: "clock",
-                description: Text("Comics you open will appear here")
-            )
-            .navigationTitle("Recent")
-        }
-    }
-}
 
 struct VaultView: View {
     var body: some View {
@@ -78,12 +189,19 @@ struct VaultView: View {
 }
 
 struct SettingsView: View {
+    @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
+    @AppStorage(Constants.UserDefaultsKey.hideVaultFromRecent) private var hideVaultFromRecent = false
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Reading") {
-                    Text("Settings coming soon")
-                        .foregroundStyle(.secondary)
+                Section {
+                    Toggle("Show Recent Files Tab", isOn: $showRecentFiles)
+                    Toggle("Hide Vault Files from Recent", isOn: $hideVaultFromRecent)
+                } header: {
+                    Text("Recent Files")
+                } footer: {
+                    Text("When enabled, files from the vault will not appear in the Recent tab.")
                 }
 
                 Section("About") {

@@ -51,5 +51,7 @@ enum Constants {
         static let autoHideControls = "autoHideControls"
         static let recentFilesLimit = "recentFilesLimit"
         static let thumbnailSize = "thumbnailSize"
+        static let showRecentFiles = "showRecentFiles"
+        static let hideVaultFromRecent = "hideVaultFromRecent"
     }
 }

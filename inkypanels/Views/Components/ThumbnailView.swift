@@ -7,6 +7,9 @@ struct ThumbnailView: View {
     @State private var thumbnailData: Data?
     @State private var isLoading: Bool = true
 
+    /// Shared thumbnail service instance
+    private static let thumbnailService = ThumbnailService()
+
     var body: some View {
         Group {
             if let thumbnailData,
@@ -17,16 +20,19 @@ struct ThumbnailView: View {
                     .frame(width: size.width, height: size.height)
                     .clipped()
             } else if isLoading {
-                ProgressView()
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.1))
                     .frame(width: size.width, height: size.height)
-                    .background(Color.secondary.opacity(0.1))
+                    .overlay {
+                        ProgressView()
+                    }
             } else {
-                // Placeholder
+                // Placeholder for failed loads
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.secondary.opacity(0.2))
                     .frame(width: size.width, height: size.height)
                     .overlay {
-                        Image(systemName: "book.closed")
+                        Image(systemName: file.fileType.icon)
                             .font(.title)
                             .foregroundStyle(.secondary)
                     }
@@ -39,8 +45,19 @@ struct ThumbnailView: View {
     }
 
     private func loadThumbnail() async {
-        // TODO: Load from ThumbnailService
+        do {
+            thumbnailData = try await Self.thumbnailService.thumbnail(for: file)
+        } catch {
+            // Silently fail - placeholder will show
+        }
         isLoading = false
+    }
+
+    /// Access to shared service for background generation
+    static func generateThumbnailsInBackground(for files: [ComicFile]) {
+        Task {
+            await thumbnailService.generateInBackground(files: files)
+        }
     }
 }
 

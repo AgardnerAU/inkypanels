@@ -108,6 +108,22 @@ enum ComicFileType: String, CaseIterable, Sendable {
         }
     }
 
+    /// SF Symbol icon for this file type
+    var icon: String {
+        switch self {
+        case .cbz, .cbr, .cb7, .cba, .zip, .rar, .sevenZip:
+            return "book.closed"
+        case .pdf:
+            return "doc.fill"
+        case .folder:
+            return "folder.fill"
+        case .png, .jpg, .jpeg, .webp, .tiff, .tif, .gif, .heic:
+            return "photo"
+        case .unknown:
+            return "questionmark.square"
+        }
+    }
+
     /// Initialize from a file extension
     init(from extension: String) {
         let ext = `extension`.lowercased()
