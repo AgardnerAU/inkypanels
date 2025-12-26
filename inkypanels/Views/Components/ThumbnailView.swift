@@ -39,7 +39,7 @@ struct ThumbnailView: View {
             }
         }
         .cornerRadius(4)
-        .task {
+        .task(priority: .userInitiated) {
             await loadThumbnail()
         }
     }

@@ -4,6 +4,10 @@ import Foundation
 /// Vault service for managing encrypted file storage
 actor VaultService: @preconcurrency VaultServiceProtocol {
 
+    // MARK: - Shared Instance
+
+    static let shared = VaultService()
+
     // MARK: - Dependencies
 
     private let encryptionService: EncryptionService

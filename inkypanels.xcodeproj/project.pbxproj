@@ -37,6 +37,7 @@
 		59BCEF5D3F4B2B49B9E2A4E8 /* VaultFileListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D16A7000C95BDE11813FE2B /* VaultFileListView.swift */; };
 		5B236D0CC35AE566D7AA2270 /* ReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47104F001FDE866E3A321297 /* ReadingProgress.swift */; };
 		5BF345C1301AECF3AF975FE3 /* RecentFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EB54B9E58B550A29A24B84 /* RecentFilesViewModel.swift */; };
+		5BF345C1301AECF3AF975FE4 /* FavouritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EB54B9E58B550A29A24B85 /* FavouritesViewModel.swift */; };
 		5F33A2242E5B663AF3958F79 /* PDFReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9A8ED4CEE6CE29FB63827F /* PDFReader.swift */; };
 		66540F0613CB65F1BED2A897 /* ReaderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB99353AE693B97463A655EA /* ReaderViewModel.swift */; };
 		66724E91EFA0E92D192BC20F /* ReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC891634E80A200CD8569F8E /* ReaderView.swift */; };
@@ -64,6 +65,7 @@
 		DE5C36F5BDD947DEBD9ABD84 /* FileServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F38DE2B948E9476909A9883 /* FileServiceProtocol.swift */; };
 		E7B5F00EBE2D67B69D46C43A /* ZIPFoundationReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0FE1F52B84D8C79CB268E38 /* ZIPFoundationReader.swift */; };
 		EB4FEEB890D8798D673FF195 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1B9E5557E4440A28B90B25D1 /* Assets.xcassets */; };
+		EB4FEEB890D8798D673FF196 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1B9E5557E4440A28B90B25D2 /* LaunchScreen.storyboard */; };
 		EB89C8886CC759F9AF809F4C /* FolderReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF2BBF499641DF4A96C1BD33 /* FolderReader.swift */; };
 		F0C17127846A11029F9F2FFE /* VaultUnlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23322DE977784B768657F4E0 /* VaultUnlockView.swift */; };
 		F1C581C17166C04A029CB6D8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = EDB0F3F5BB8C6753F576BC26 /* ZIPFoundation */; };
@@ -95,6 +97,7 @@
 		1AD0A364C856B61E8980E7C5 /* EncryptionServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionServiceProtocol.swift; sourceTree = "<group>"; };
 		1B45AA2CD2951A50B1D19439 /* ArchiveError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveError.swift; sourceTree = "<group>"; };
 		1B9E5557E4440A28B90B25D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1B9E5557E4440A28B90B25D2 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1D469F861C024F8686800BC4 /* ComicFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComicFile.swift; sourceTree = "<group>"; };
 		223D631D4D727AE7ED3330E1 /* ReaderControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderControlsView.swift; sourceTree = "<group>"; };
 		23322DE977784B768657F4E0 /* VaultUnlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultUnlockView.swift; sourceTree = "<group>"; };
@@ -138,6 +141,7 @@
 		C40BC9581265E10516ADBAB7 /* ZoomableImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImageView.swift; sourceTree = "<group>"; };
 		C7BEE99A7B81F336BB4CD440 /* ThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailView.swift; sourceTree = "<group>"; };
 		C7EB54B9E58B550A29A24B84 /* RecentFilesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesViewModel.swift; sourceTree = "<group>"; };
+		C7EB54B9E58B550A29A24B85 /* FavouritesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavouritesViewModel.swift; sourceTree = "<group>"; };
 		CCD0128F7C5BF2621CD78C2A /* FileRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRowView.swift; sourceTree = "<group>"; };
 		D09F72102C68F05A4744DA53 /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
 		DF6F05852EC777DA7F144AA0 /* ArchiveReaderFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveReaderFactory.swift; sourceTree = "<group>"; };
@@ -178,6 +182,7 @@
 			children = (
 				1B9E5557E4440A28B90B25D1 /* Assets.xcassets */,
 				E2D18F617E3928F7F62AF6EB /* Info.plist */,
+				1B9E5557E4440A28B90B25D2 /* LaunchScreen.storyboard */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -314,6 +319,7 @@
 		9B40219919D1ED4B2C14061F /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				C7EB54B9E58B550A29A24B85 /* FavouritesViewModel.swift */,
 				5ADAF59C3F9D55A910F3E142 /* LibraryViewModel.swift */,
 				EB99353AE693B97463A655EA /* ReaderViewModel.swift */,
 				C7EB54B9E58B550A29A24B84 /* RecentFilesViewModel.swift */,
@@ -531,6 +537,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EB4FEEB890D8798D673FF195 /* Assets.xcassets in Resources */,
+				EB4FEEB890D8798D673FF196 /* LaunchScreen.storyboard in Resources */,
 				A38D4D549D341354868DF557 /* Preview Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -595,6 +602,7 @@
 				66540F0613CB65F1BED2A897 /* ReaderViewModel.swift in Sources */,
 				5B236D0CC35AE566D7AA2270 /* ReadingProgress.swift in Sources */,
 				5BF345C1301AECF3AF975FE3 /* RecentFilesViewModel.swift in Sources */,
+				5BF345C1301AECF3AF975FE4 /* FavouritesViewModel.swift in Sources */,
 				143AD0CAC3844BA661DE0251 /* ThumbnailService.swift in Sources */,
 				4F69D9C8EAE8F1AB6959A1E7 /* ThumbnailServiceProtocol.swift in Sources */,
 				CE514AF8C20987BE7BC9DAB4 /* ThumbnailView.swift in Sources */,

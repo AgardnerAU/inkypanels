@@ -37,7 +37,7 @@ final class LibraryViewModel {
 
     private let fileService: FileService
     private var favouriteService: FavouriteService?
-    private let vaultService = VaultService()
+    private var vaultService: VaultService { VaultService.shared }
 
     // MARK: - Initialization
 
@@ -117,7 +117,7 @@ final class LibraryViewModel {
 
         guard await vaultService.checkUnlocked() else {
             // User needs to unlock vault first
-            error = .vault(.vaultNotSetUp)
+            error = .vault(.vaultLocked)
             return
         }
 

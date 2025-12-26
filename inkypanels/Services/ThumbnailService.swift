@@ -120,23 +120,59 @@ actor ThumbnailService: ThumbnailServiceProtocol {
 
     // MARK: - Background Generation
 
-    /// Generate thumbnails for multiple files in the background
+    /// Generate thumbnails for multiple files in the background using parallel processing
     func generateInBackground(files: [ComicFile]) async {
-        for file in files {
-            // Skip if already cached
+        // Filter to only files that need thumbnails generated
+        let filesToProcess = files.filter { file in
             let cacheKey = cacheKey(for: file)
             let cacheURL = cacheDirectory.appendingPathComponent(cacheKey + ".jpg")
-
-            if FileManager.default.fileExists(atPath: cacheURL.path) {
-                continue
-            }
-
-            // Generate and cache (ignore errors for background generation)
-            _ = try? await thumbnail(for: file)
-
-            // Small delay to avoid overwhelming the system
-            try? await Task.sleep(for: .milliseconds(50))
+            return !FileManager.default.fileExists(atPath: cacheURL.path)
         }
+
+        // Process in parallel batches for better performance
+        let batchSize = 4
+        for batch in stride(from: 0, to: filesToProcess.count, by: batchSize) {
+            let end = min(batch + batchSize, filesToProcess.count)
+            let batchFiles = Array(filesToProcess[batch..<end])
+
+            await withTaskGroup(of: Void.self) { group in
+                for file in batchFiles {
+                    group.addTask {
+                        // Generate thumbnail outside actor isolation for better parallelism
+                        _ = try? await self.generateThumbnailAsync(for: file)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Generate a thumbnail with caching - can be called from parallel tasks
+    private func generateThumbnailAsync(for file: ComicFile) async throws -> Data {
+        let cacheKey = cacheKey(for: file)
+        let cacheURL = cacheDirectory.appendingPathComponent(cacheKey + ".jpg")
+
+        // Double-check cache (another task might have generated it)
+        if FileManager.default.fileExists(atPath: cacheURL.path),
+           let data = try? Data(contentsOf: cacheURL) {
+            await addToMemoryCacheAsync(key: cacheKey, data: data)
+            return data
+        }
+
+        // Generate thumbnail
+        let thumbnailData = try await generateThumbnailForFile(file)
+
+        // Save to disk cache
+        try? thumbnailData.write(to: cacheURL, options: .atomic)
+
+        // Add to memory cache
+        await addToMemoryCacheAsync(key: cacheKey, data: thumbnailData)
+
+        return thumbnailData
+    }
+
+    /// Thread-safe memory cache update
+    private func addToMemoryCacheAsync(key: String, data: Data) {
+        addToMemoryCache(key: key, data: data)
     }
 
     // MARK: - Private Methods

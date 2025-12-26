@@ -10,6 +10,7 @@ struct ContentView: View {
 
     enum Tab: String, Hashable {
         case library = "Library"
+        case favourites = "Favourites"
         case recent = "Recent"
         case vault = "Vault"
         case settings = "Settings"
@@ -17,6 +18,7 @@ struct ContentView: View {
         var icon: String {
             switch self {
             case .library: return "books.vertical"
+            case .favourites: return "star.fill"
             case .recent: return "clock"
             case .vault: return "lock.fill"
             case .settings: return "gear"
@@ -25,7 +27,7 @@ struct ContentView: View {
     }
 
     private var visibleTabs: [Tab] {
-        var tabs: [Tab] = [.library]
+        var tabs: [Tab] = [.library, .favourites]
         if showRecentFiles {
             tabs.append(.recent)
         }
@@ -50,6 +52,8 @@ struct ContentView: View {
             switch selectedTab {
             case .library:
                 LibraryView()
+            case .favourites:
+                FavouritesView()
             case .recent:
                 RecentFilesView()
             case .vault:
@@ -60,6 +64,7 @@ struct ContentView: View {
                 LibraryView()
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .onChange(of: showRecentFiles) { _, newValue in
             // If Recent tab is hidden and currently selected, switch to Library
             if !newValue && selectedTab == .recent {
@@ -125,6 +130,11 @@ struct RecentFilesView: View {
         .task {
             viewModel.configureService(modelContext: modelContext)
             await viewModel.loadRecentFiles()
+        }
+        .onAppear {
+            Task {
+                await viewModel.loadRecentFiles()
+            }
         }
     }
 
@@ -196,6 +206,111 @@ struct RecentFileRowView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Favourites View
+
+struct FavouritesView: View {
+    @Environment(\.modelContext) private var modelContext
+    @State private var viewModel = FavouritesViewModel()
+    @State private var navigationPath = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $navigationPath) {
+            Group {
+                if viewModel.isLoading {
+                    LoadingView("Loading favourites...")
+                } else if viewModel.favouriteFiles.isEmpty {
+                    ContentUnavailableView(
+                        "No Favourites",
+                        systemImage: "star",
+                        description: Text("Swipe right on a comic and tap the star to add it to favourites")
+                    )
+                } else {
+                    favouritesList
+                }
+            }
+            .navigationTitle("Favourites")
+            .navigationDestination(for: ComicFile.self) { file in
+                ReaderView(comic: file)
+            }
+            .refreshable {
+                await viewModel.loadFavourites()
+            }
+        }
+        .task {
+            viewModel.configureService(modelContext: modelContext)
+            await viewModel.loadFavourites()
+        }
+        .onAppear {
+            Task {
+                await viewModel.loadFavourites()
+            }
+        }
+    }
+
+    private var favouritesList: some View {
+        List {
+            ForEach(viewModel.favouriteFiles) { file in
+                NavigationLink(value: file) {
+                    FavouriteFileRowView(file: file)
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        Task { await viewModel.removeFavourite(file) }
+                    } label: {
+                        Label("Remove", systemImage: "star.slash")
+                    }
+                    .tint(.yellow)
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+}
+
+struct FavouriteFileRowView: View {
+    let file: ComicFile
+
+    private let thumbnailSize = CGSize(width: 60, height: 80)
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ThumbnailView(file: file, size: thumbnailSize)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(file.name)
+                    .font(.headline)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    Text(file.fileType.rawValue.uppercased())
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.2))
+                        .cornerRadius(4)
+
+                    Text(formattedFileSize)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "star.fill")
+                .foregroundStyle(.yellow)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var formattedFileSize: String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: file.fileSize)
     }
 }
 

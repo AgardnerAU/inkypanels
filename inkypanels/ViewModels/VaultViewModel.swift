@@ -46,16 +46,12 @@ final class VaultViewModel {
 
     // MARK: - Dependencies
 
-    private var vaultService: VaultService?
-    private var keychainService: KeychainService?
+    private var vaultService: VaultService { VaultService.shared }
+    private let keychainService = KeychainService()
 
     // MARK: - Init
 
-    init() {
-        let keychain = KeychainService()
-        self.keychainService = keychain
-        self.vaultService = VaultService(keychainService: keychain)
-    }
+    init() {}
 
     // MARK: - Configuration
 
@@ -67,8 +63,6 @@ final class VaultViewModel {
     // MARK: - Status Check
 
     func checkVaultStatus() async {
-        guard let vaultService else { return }
-
         let isSetUp = vaultService.isVaultSetUp
         let isUnlocked = await vaultService.checkUnlocked()
 
@@ -85,8 +79,6 @@ final class VaultViewModel {
     }
 
     private func checkBiometricAvailability() async {
-        guard let keychainService else { return }
-
         isBiometricAvailable = keychainService.isBiometricAvailable()
         biometryType = keychainService.biometryType()
     }
@@ -100,7 +92,7 @@ final class VaultViewModel {
     }
 
     func setupVault() async {
-        guard canSetupVault, let vaultService else { return }
+        guard canSetupVault else { return }
 
         isLoading = true
         error = nil
@@ -136,7 +128,7 @@ final class VaultViewModel {
     }
 
     func unlockWithPassword() async {
-        guard canUnlock, let vaultService else { return }
+        guard canUnlock else { return }
 
         isLoading = true
         error = nil
@@ -158,7 +150,7 @@ final class VaultViewModel {
     }
 
     func unlockWithBiometric() async {
-        guard isBiometricEnabled, let vaultService else { return }
+        guard isBiometricEnabled else { return }
 
         isLoading = true
         error = nil
@@ -182,7 +174,7 @@ final class VaultViewModel {
 
     func lock() {
         Task {
-            await vaultService?.lock()
+            await vaultService.lock()
         }
         vaultState = .locked
         vaultItems = []
@@ -192,8 +184,6 @@ final class VaultViewModel {
     // MARK: - File Operations
 
     private func loadVaultItems() async {
-        guard let vaultService else { return }
-
         do {
             vaultItems = try await vaultService.listFiles()
         } catch {
@@ -202,8 +192,6 @@ final class VaultViewModel {
     }
 
     func addFile(_ file: ComicFile) async {
-        guard let vaultService else { return }
-
         isLoading = true
         error = nil
 
@@ -222,8 +210,6 @@ final class VaultViewModel {
     }
 
     func removeFile(_ item: VaultItem) async {
-        guard let vaultService else { return }
-
         isLoading = true
         error = nil
 
@@ -242,8 +228,6 @@ final class VaultViewModel {
     }
 
     func openFile(_ item: VaultItem) async -> URL? {
-        guard let vaultService else { return nil }
-
         isLoading = true
         error = nil
 
@@ -267,8 +251,6 @@ final class VaultViewModel {
     // MARK: - Settings
 
     func toggleBiometric(enabled: Bool, password: String) async {
-        guard let vaultService else { return }
-
         isLoading = true
         error = nil
 
@@ -294,7 +276,7 @@ final class VaultViewModel {
     }
 
     func changePassword() async {
-        guard canChangePassword, let vaultService else { return }
+        guard canChangePassword else { return }
 
         isLoading = true
         error = nil
@@ -320,8 +302,6 @@ final class VaultViewModel {
     }
 
     func deleteVault(password: String) async {
-        guard let vaultService else { return }
-
         isLoading = true
         error = nil
 

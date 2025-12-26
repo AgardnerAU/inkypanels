@@ -9,6 +9,7 @@ enum VaultError: Error, LocalizedError {
     case decryptionFailed(underlying: Error)
     case manifestCorrupted
     case vaultNotSetUp
+    case vaultLocked
     case fileAlreadyInVault
     case fileNotInVault
 
@@ -28,6 +29,8 @@ enum VaultError: Error, LocalizedError {
             return "Vault data is corrupted"
         case .vaultNotSetUp:
             return "Vault has not been set up"
+        case .vaultLocked:
+            return "Vault is locked"
         case .fileAlreadyInVault:
             return "File is already in the vault"
         case .fileNotInVault:
@@ -51,6 +54,8 @@ enum VaultError: Error, LocalizedError {
             return "You may need to reset the vault. This will remove all encrypted files."
         case .vaultNotSetUp:
             return "Set up a vault password in Settings."
+        case .vaultLocked:
+            return "Unlock your vault first to add files."
         case .fileAlreadyInVault:
             return "The file is already protected in the vault."
         case .fileNotInVault:
