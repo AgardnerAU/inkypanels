@@ -2,8 +2,8 @@
 
 This document captures architectural decisions for the inkypanels project.
 
-> **Last Updated**: 2024-12-26
-> **Status**: Phase 1C complete - Reader experience implemented
+> **Last Updated**: 2025-12-26
+> **Status**: Phase 1C + Library Features complete. Phase 1D (Secure Vault) next.
 
 ---
 
@@ -15,6 +15,7 @@ This document captures architectural decisions for the inkypanels project.
 | Phase 0.1: Walking Skeleton | Complete | FileService, basic reader, navigation |
 | Phase 1B: Archive Support | Complete | PDF, streaming extraction, security |
 | Phase 1C: Reader Experience | Complete | Zoom, pan, progress persistence, bookmarks |
+| Library Features | Complete | Thumbnails, favourites, recent files, bulk delete, settings |
 | Phase 1D: Secure Vault | Not Started | Encryption, biometrics |
 
 ---
@@ -168,9 +169,10 @@ final class AppState {
 | Version | Features | Risk Level | Status |
 |---------|----------|------------|--------|
 | **v0.1** | File browser, CBZ/PDF, basic navigation, streaming extraction | Low | **Done** |
-| **v0.2** | ZoomableImageView (pinch/pan), reading controls overlay, progress persistence | Medium | Next |
+| **v0.2** | ZoomableImageView (pinch/pan), reading controls, progress persistence | Medium | **Done** |
+| **v0.2.1** | Thumbnails, favourites, recent files, bulk delete, image/folder readers, settings | Medium | **Done** |
 | **v0.3** | libarchive XCFramework for CBR/CB7, RAR5 detection | High | Blocked on build |
-| **v0.4** | Secure vault with AES-256 encryption | High | Planned |
+| **v0.4** | Secure vault with AES-256 encryption | High | **Next** |
 
 **Rationale**: De-risk by getting core reading working before tackling C bridging and encryption.
 
@@ -215,11 +217,12 @@ final class AppState {
 - **Memory**: Only current page image in memory at a time
 - **Benefit**: Large comics (1000+ pages) work without OOM
 
-### Thumbnail Cache (Planned)
+### Thumbnail Cache (Implemented)
 - **Location**: `Caches/Thumbnails/`
-- **Naming**: SHA-256 hash of file path
-- **Size Limit**: 500MB
-- **Eviction**: LRU (least recently used)
+- **Naming**: SHA-256 hash of file path (64 chars)
+- **Size**: 200x280 pixels (configurable in Constants)
+- **Generation**: Background task on library load
+- **Memory Cache**: In-memory LRU for recently accessed
 
 ---
 
@@ -394,6 +397,222 @@ settings:
 
 ---
 
+## 17. SHA256 for Filesystem-Safe Identifiers
+
+**Decision**: Use SHA256 Hash Instead of Base64 for IDs
+
+**Date**: 2025-12-26
+
+**Context**: Original implementation used Base64 encoding of file paths for `ArchiveEntry.id` and cache directory names. This caused "Invalid filename" errors when paths exceeded the 255-byte filesystem limit after Base64 encoding (which increases size by ~33%).
+
+**Decision**:
+- Use SHA256 hash of file path for `ArchiveEntry.id` (64 chars, always valid)
+- Use SHA256 hash for cache directory names in `ZIPFoundationReader`, `PDFReader`
+- SHA256 output is hexadecimal, filesystem-safe, and fixed-length
+
+**Implementation**:
+```swift
+import CryptoKit
+
+let hash = SHA256.hash(data: Data(path.utf8))
+let id = hash.compactMap { String(format: "%02x", $0) }.joined()
+// Always 64 characters, e.g., "a1b2c3d4..."
+```
+
+**Consequences**:
+- No filename length errors regardless of path length
+- Cache directories named by hash, not encoded path
+- Slight computational overhead (negligible)
+
+---
+
+## 18. ImageReader and FolderReader for Non-Archive Sources
+
+**Decision**: Extend ArchiveReader Protocol to Handle Images and Folders
+
+**Date**: 2025-12-26
+
+**Context**: Users wanted to open single image files and folders of images directly, not just archives. The existing `ArchiveReaderFactory` only handled CBZ, PDF, and archive formats.
+
+**Decision**:
+- `ImageReader`: Treats single image file as 1-page "archive"
+- `FolderReader`: Lists images in folder as multi-page "archive", sorted naturally
+- Both conform to `ArchiveReader` protocol for seamless integration
+
+**Implementation**:
+```swift
+actor ImageReader: ArchiveReader {
+    func listEntries() async throws -> [ArchiveEntry] {
+        // Single entry with image filename
+    }
+    func extractEntry(_ entry: ArchiveEntry) async throws -> URL {
+        return archiveURL  // Return original file, no extraction needed
+    }
+}
+
+actor FolderReader: ArchiveReader {
+    func listEntries() async throws -> [ArchiveEntry] {
+        // List all images in folder, sorted by filename
+    }
+    func extractEntry(_ entry: ArchiveEntry) async throws -> URL {
+        return archiveURL.appendingPathComponent(entry.path)
+    }
+}
+```
+
+**Factory Routing**:
+```swift
+// Check for directory first
+if isDirectory { return FolderReader(url: url) }
+
+// Check for image extensions
+case "jpg", "png", ...: return ImageReader(url: url)
+```
+
+**Consequences**:
+- Unified reading experience for all content types
+- No special-casing in ReaderView or ReaderViewModel
+- Natural sorting for folder contents (handles "page 2" vs "page 10" correctly)
+
+---
+
+## 19. ThumbnailService with Background Generation
+
+**Decision**: Actor-Based Thumbnail Service with Disk Caching
+
+**Date**: 2025-12-26
+
+**Context**: Library needed cover thumbnails for visual browsing. Generating thumbnails on-demand would cause visible delays; pre-generating all thumbnails would slow app launch.
+
+**Decision**:
+- `ThumbnailService` actor generates thumbnails in background after library loads
+- Thumbnails cached to disk (`Caches/Thumbnails/`) using SHA256 filename
+- Memory cache for recently accessed thumbnails
+- `ThumbnailView` displays placeholder until thumbnail ready
+
+**Implementation**:
+```swift
+actor ThumbnailService: ThumbnailServiceProtocol {
+    private var memoryCache: [String: Data] = [:]
+    private let cacheDirectory: URL  // Caches/Thumbnails/
+
+    func thumbnail(for file: ComicFile) async throws -> Data {
+        // Check memory cache → disk cache → generate
+    }
+
+    func generateInBackground(files: [ComicFile]) async {
+        // Process files not in cache
+    }
+}
+```
+
+**Trigger** (in `LibraryViewModel.loadFiles()`):
+```swift
+ThumbnailView.generateThumbnailsInBackground(for: files)
+```
+
+**Consequences**:
+- Fast library display (placeholders shown immediately)
+- Thumbnails appear as they're generated
+- Persistent cache survives app restarts
+- Memory-efficient (disk-backed with small memory cache)
+
+---
+
+## 20. Favourites Using SwiftData
+
+**Decision**: SwiftData Model for Favourite Persistence
+
+**Date**: 2025-12-26
+
+**Context**: Users wanted to mark files as favourites with swipe gesture. Needed persistent storage that integrates with existing SwiftData usage.
+
+**Decision**:
+- `FavouriteRecord` SwiftData model with unique `filePath` constraint
+- `FavouriteService` for CRUD operations
+- Swipe-right gesture in LibraryView to toggle
+- Star indicator on favourite files
+
+**Implementation**:
+```swift
+@Model
+final class FavouriteRecord {
+    @Attribute(.unique) var filePath: String
+    var addedDate: Date
+}
+
+@MainActor
+final class FavouriteService {
+    func toggleFavourite(filePath: String) async
+    func favouriteStatus(for filePaths: [String]) async -> Set<String>
+}
+```
+
+**View Integration**:
+```swift
+.swipeActions(edge: .leading) {
+    Button { await viewModel.toggleFavourite(file) }
+    label: { Label("Favourite", systemImage: "star.fill") }
+    .tint(.yellow)
+}
+```
+
+**Consequences**:
+- Favourites persist across app restarts
+- Batch status query for efficient UI updates
+- Uses existing SwiftData container (no migration needed)
+
+---
+
+## 21. Recent Files with Settings Control
+
+**Decision**: Query-Based Recent Files with User Settings
+
+**Date**: 2025-12-26
+
+**Context**: Users wanted to see recently read files. Settings needed to control visibility and filter vault files.
+
+**Decision**:
+- Query `ProgressRecord` sorted by `lastReadDate` descending
+- Settings toggle to hide Recent tab entirely
+- Settings toggle to filter vault files from recent list
+- `RecentFilesViewModel` handles query and file existence checks
+
+**Implementation**:
+```swift
+// ProgressService
+func recentFiles(limit: Int = 20) async -> [ProgressRecord] {
+    var descriptor = FetchDescriptor<ProgressRecord>(
+        sortBy: [SortDescriptor(\ProgressRecord.lastReadDate, order: .reverse)]
+    )
+    descriptor.fetchLimit = limit
+    return try modelContext.fetch(descriptor)
+}
+
+// RecentFilesViewModel
+func loadRecentFiles() async {
+    let hideVaultFiles = UserDefaults.standard.bool(forKey: hideVaultFromRecentKey)
+    for record in records {
+        if hideVaultFiles && record.filePath.contains("/.vault/") { continue }
+        if !FileManager.default.fileExists(atPath: record.filePath) { continue }
+        // Add to list
+    }
+}
+```
+
+**Settings** (ContentView):
+```swift
+@AppStorage("showRecentFiles") var showRecentFiles = true
+@AppStorage("hideVaultFromRecent") var hideVaultFromRecent = false
+```
+
+**Consequences**:
+- No additional data model needed (reuses ProgressRecord)
+- Gracefully handles deleted files (filters non-existent)
+- User control over privacy-sensitive recent list
+
+---
+
 ## Service Protocol Definitions
 
 ### Core Protocols (Implemented)
@@ -459,16 +678,25 @@ final class ProgressRecord {
 }
 ```
 
-### Planned Protocols (v0.4+)
+### Implemented Protocols (Library Features)
 
 ```swift
-
-// MARK: - Thumbnail Service
+// MARK: - Thumbnail Service (Implemented)
 
 protocol ThumbnailServiceProtocol: Sendable {
     func thumbnail(for file: ComicFile) async throws -> Data
-    func generateThumbnail(from imageData: Data, size: CGSize) async throws -> Data
+    func generateInBackground(files: [ComicFile]) async
     func clearCache() async
+}
+
+// MARK: - Favourite Service (Implemented)
+
+@MainActor
+final class FavouriteService {
+    func isFavourite(filePath: String) async -> Bool
+    func toggleFavourite(filePath: String) async
+    func favouriteStatus(for filePaths: [String]) async -> Set<String>
+    func allFavourites() async -> [String]
 }
 ```
 
@@ -515,14 +743,16 @@ inkypanels/
 ├── Package.swift                        # SPM manifest
 ├── inkypanels/
 │   ├── App/
-│   │   ├── InkyPanelsApp.swift
-│   │   ├── ContentView.swift            # Root navigation
+│   │   ├── InkyPanelsApp.swift          # SwiftData container setup
+│   │   ├── ContentView.swift            # Root navigation + RecentFilesView + SettingsView
 │   │   └── AppState.swift
 │   │
 │   ├── Models/
-│   │   ├── ComicFile.swift
+│   │   ├── ComicFile.swift              # ComicFile + ComicFileType
 │   │   ├── ComicPage.swift              # Legacy (being phased out)
-│   │   ├── ArchiveEntry.swift           # NEW: Page metadata
+│   │   ├── ArchiveEntry.swift           # Page metadata (SHA256 ID)
+│   │   ├── ProgressRecord.swift         # SwiftData progress persistence
+│   │   ├── FavouriteRecord.swift        # SwiftData favourites
 │   │   ├── ReadingProgress.swift
 │   │   ├── VaultItem.swift
 │   │   └── Errors/
@@ -533,7 +763,7 @@ inkypanels/
 │   │       └── ReaderError.swift
 │   │
 │   ├── Protocols/
-│   │   ├── ArchiveReader.swift          # NEW: Streaming extraction
+│   │   ├── ArchiveReader.swift          # Streaming extraction
 │   │   ├── FileServiceProtocol.swift
 │   │   ├── ProgressServiceProtocol.swift
 │   │   ├── ThumbnailServiceProtocol.swift
@@ -543,35 +773,42 @@ inkypanels/
 │   │
 │   ├── Services/
 │   │   ├── FileService.swift
-│   │   ├── ArchiveReaderFactory.swift   # NEW: Format routing
-│   │   ├── ExtractionCache.swift        # NEW: Temp file management
-│   │   └── Readers/                     # NEW: Backend implementations
+│   │   ├── ProgressService.swift        # SwiftData progress + recent files
+│   │   ├── FavouriteService.swift       # SwiftData favourites
+│   │   ├── ThumbnailService.swift       # Background thumbnail generation
+│   │   ├── ArchiveReaderFactory.swift   # Format routing (archives + images + folders)
+│   │   ├── ExtractionCache.swift        # Temp file management
+│   │   └── Readers/
 │   │       ├── ZIPFoundationReader.swift
 │   │       ├── PDFReader.swift
-│   │       └── LibArchiveReader.swift
+│   │       ├── ImageReader.swift        # Single image files
+│   │       ├── FolderReader.swift       # Folders of images
+│   │       └── LibArchiveReader.swift   # Feature-flagged
 │   │
 │   ├── ViewModels/
-│   │   ├── LibraryViewModel.swift
-│   │   └── ReaderViewModel.swift
+│   │   ├── LibraryViewModel.swift       # Selection mode + favourites
+│   │   ├── ReaderViewModel.swift        # Progress + bookmarks
+│   │   └── RecentFilesViewModel.swift   # Recent files query
 │   │
 │   ├── Views/
 │   │   ├── Library/
-│   │   │   ├── LibraryView.swift
-│   │   │   └── FileRowView.swift
+│   │   │   ├── LibraryView.swift        # Selection mode + swipe actions
+│   │   │   └── FileRowView.swift        # Thumbnails + favourite indicator
 │   │   ├── Reader/
 │   │   │   ├── ReaderView.swift
 │   │   │   ├── PageView.swift
 │   │   │   ├── ReaderControlsView.swift
 │   │   │   └── PageSliderView.swift
 │   │   └── Components/
-│   │       ├── ThumbnailView.swift
+│   │       ├── ZoomableImageView.swift  # Pinch-zoom + pan
+│   │       ├── ThumbnailView.swift      # Async loading from service
 │   │       ├── LoadingView.swift
 │   │       └── ErrorView.swift
 │   │
 │   ├── Utilities/
-│   │   ├── Constants.swift
+│   │   ├── Constants.swift              # Includes UserDefaults keys
 │   │   ├── FileTypes.swift
-│   │   └── ArchiveLimits.swift          # NEW: Security constants
+│   │   └── ArchiveLimits.swift          # Security constants
 │   │
 │   └── Resources/
 │       ├── Assets.xcassets
@@ -595,6 +832,7 @@ inkypanels/
 - [x] Phase 0.1: Walking Skeleton - FileService, basic reader flow
 - [x] Phase 1B: Archive Support - PDF, streaming architecture, security
 - [x] Phase 1C: Reader Experience - Zoom, pan, progress persistence, bookmarks
+- [x] Library Features - Thumbnails, favourites, recent files, bulk delete, image/folder readers, settings
 
 ### Next: Phase 1D - Secure Vault
 
@@ -605,6 +843,8 @@ inkypanels/
 5. Implement vault manifest encryption
 6. Build VaultView file browser
 7. Add "Move to Vault" / "Remove from Vault" actions
+8. Implement secure temporary file handling
+9. Hide .vault folder from normal browsing
 
 ### Blocked: libarchive Integration
 
@@ -624,3 +864,4 @@ libarchive infrastructure is ready (`LibArchiveReader` with feature flag). Requi
 | 1.0 | 2024-12-25 | Initial architecture decisions |
 | 2.0 | 2024-12-26 | Major revision: streaming extraction, security hardening, build-time feature flags |
 | 2.1 | 2024-12-26 | Phase 1C complete: SwiftData progress persistence, ZoomableImageView, bookmarks |
+| 2.2 | 2025-12-26 | Library Features: ADRs 17-21 (SHA256 IDs, ImageReader, FolderReader, ThumbnailService, Favourites, Recent Files) |

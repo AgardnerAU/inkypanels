@@ -32,7 +32,7 @@
 
 ### Phase 1: MVP (Minimum Viable Product)
 
-> **Status**: Phase 1A-1C complete, 1D-1E in progress
+> **Status**: Phase 1A-1C complete + Library Features. Phase 1D (Secure Vault) next.
 
 #### Core Reading Experience
 - [x] Open and display image files (PNG, JPG, WEBP, TIFF)
@@ -50,16 +50,20 @@
 #### File Management
 - [x] Browse Documents folder
 - [x] Navigate folder hierarchy
-- [ ] Display file thumbnails
+- [x] Display file thumbnails (background generation with disk cache)
 - [x] Sort files (name, date, size)
-- [ ] Recent files list
+- [x] Recent files list (with progress bars and swipe-to-remove)
 - [x] Import via Files app / iTunes file sharing
+- [x] Bulk delete with selection mode
+- [x] Favourite files (swipe-to-favourite with star indicators)
+- [x] Open single image files (JPG, PNG, etc.)
+- [x] Open folders of images as multi-page comics
 
 #### Reading Progress
 - [x] Remember last page per comic
 - [x] Bookmark support
 - [x] Resume reading from last position
-- [ ] Track read/unread status
+- [x] Track read/unread status (via isCompleted in ProgressRecord)
 
 #### Secure Vault
 - [ ] Password-protected vault folder
@@ -102,7 +106,7 @@
 - [ ] Image transition animations
 - [ ] Auto-slideshow mode with configurable timing
 - [ ] Magnifier tool
-- [ ] Bulk file operations
+- [x] Bulk file operations (moved to Phase 1)
 
 #### Cloud & Sync
 - [ ] iCloud sync for reading progress
@@ -119,7 +123,7 @@
 
 ## Project Structure
 
-> **Updated**: 2024-12-26 - Reflects Phase 1C completion (reader experience)
+> **Updated**: 2025-12-26 - Reflects Phase 1C + Library Features completion
 
 ```
 inkypanels/
@@ -129,14 +133,15 @@ inkypanels/
 ├── inkypanels/
 │   ├── App/
 │   │   ├── InkyPanelsApp.swift          # App entry point + SwiftData container
-│   │   ├── ContentView.swift            # Root navigation (sidebar)
+│   │   ├── ContentView.swift            # Root navigation + RecentFilesView + SettingsView
 │   │   └── AppState.swift               # Shared observable state
 │   │
 │   ├── Models/
-│   │   ├── ComicFile.swift              # Comic file representation
-│   │   ├── ArchiveEntry.swift           # Page metadata
-│   │   ├── ProgressRecord.swift         # SwiftData model for progress (NEW)
-│   │   ├── ReadingProgress.swift        # Progress tracking (legacy struct)
+│   │   ├── ComicFile.swift              # Comic file representation + ComicFileType
+│   │   ├── ArchiveEntry.swift           # Page metadata (SHA256 ID)
+│   │   ├── ProgressRecord.swift         # SwiftData model for progress
+│   │   ├── FavouriteRecord.swift        # SwiftData model for favourites (NEW)
+│   │   ├── ReadingProgress.swift        # Progress tracking struct
 │   │   └── Errors/
 │   │       ├── InkyPanelsError.swift    # Top-level error enum
 │   │       ├── ArchiveError.swift
@@ -147,41 +152,47 @@ inkypanels/
 │   ├── Protocols/
 │   │   ├── ArchiveReader.swift          # Streaming extraction protocol
 │   │   ├── ProgressServiceProtocol.swift # Progress persistence
+│   │   ├── ThumbnailServiceProtocol.swift # Thumbnail generation
 │   │   ├── FileServiceProtocol.swift
 │   │   └── (vault protocols for v0.4)
 │   │
 │   ├── Services/
 │   │   ├── FileService.swift            # File system operations
-│   │   ├── ProgressService.swift        # SwiftData progress persistence (NEW)
-│   │   ├── ArchiveReaderFactory.swift   # Format routing
+│   │   ├── ProgressService.swift        # SwiftData progress persistence
+│   │   ├── FavouriteService.swift       # SwiftData favourites (NEW)
+│   │   ├── ThumbnailService.swift       # Background thumbnail generation (NEW)
+│   │   ├── ArchiveReaderFactory.swift   # Format routing (images + folders)
 │   │   ├── ExtractionCache.swift        # Temp file management
 │   │   └── Readers/                     # Archive backends
 │   │       ├── ZIPFoundationReader.swift
 │   │       ├── PDFReader.swift
+│   │       ├── ImageReader.swift        # Single image files (NEW)
+│   │       ├── FolderReader.swift       # Folders of images (NEW)
 │   │       └── LibArchiveReader.swift   # Feature-flagged
 │   │
 │   ├── ViewModels/
-│   │   ├── LibraryViewModel.swift
-│   │   └── ReaderViewModel.swift        # Includes progress + bookmark logic
+│   │   ├── LibraryViewModel.swift       # Selection + favourites support
+│   │   ├── ReaderViewModel.swift        # Progress + bookmark logic
+│   │   └── RecentFilesViewModel.swift   # Recent files query (NEW)
 │   │
 │   ├── Views/
 │   │   ├── Library/
-│   │   │   ├── LibraryView.swift
-│   │   │   └── FileRowView.swift
+│   │   │   ├── LibraryView.swift        # Selection mode + swipe actions
+│   │   │   └── FileRowView.swift        # Thumbnails + favourite indicator
 │   │   ├── Reader/
 │   │   │   ├── ReaderView.swift
 │   │   │   ├── PageView.swift           # Wraps ZoomableImageView
-│   │   │   ├── ReaderControlsView.swift # Includes fit mode + bookmark
+│   │   │   ├── ReaderControlsView.swift # Fit mode + bookmark toggle
 │   │   │   └── PageSliderView.swift
 │   │   ├── Vault/                       # Placeholder for v0.4
 │   │   └── Components/
-│   │       ├── ZoomableImageView.swift  # Pinch-zoom + pan (NEW)
-│   │       ├── ThumbnailView.swift
+│   │       ├── ZoomableImageView.swift  # Pinch-zoom + pan
+│   │       ├── ThumbnailView.swift      # Async loading from ThumbnailService
 │   │       ├── LoadingView.swift
 │   │       └── ErrorView.swift
 │   │
 │   ├── Utilities/
-│   │   ├── Constants.swift
+│   │   ├── Constants.swift              # Includes new UserDefaults keys
 │   │   ├── FileTypes.swift              # Magic bytes detection
 │   │   └── ArchiveLimits.swift          # Security constants
 │   │
@@ -231,6 +242,8 @@ inkypanels/
 |--------|-----------|--------|---------|
 | ZIP | .zip, .cbz | **Working** | ZIPFoundationReader |
 | PDF | .pdf | **Working** | PDFReader (PDFKit) |
+| Single Images | .jpg, .png, .gif, .webp, .tiff, .heic | **Working** | ImageReader |
+| Image Folders | (directories) | **Working** | FolderReader |
 | RAR 4.x | .rar, .cbr | Placeholder | LibArchiveReader (needs build) |
 | RAR 5.x | .rar, .cbr | Detected, error shown | N/A |
 | 7-Zip | .7z, .cb7 | Placeholder | LibArchiveReader (needs build) |
@@ -495,6 +508,30 @@ let plaintext = try AES.GCM.open(sealedBox, using: key)
 - Progress uses file path as stable identifier (persists across app launches)
 - Bookmarks stored as page indices in `ProgressRecord.bookmarks` array
 
+### Library Features ✅ Complete
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| - | Fix ArchiveEntry.id to use SHA256 hash | ✅ | Prevents 255-byte filename limit errors |
+| - | Add ImageReader for single images | ✅ | JPG, PNG, GIF, WEBP, TIFF, HEIC support |
+| - | Add FolderReader for image folders | ✅ | Natural sorting, multi-page reading |
+| - | Implement ThumbnailService | ✅ | Background generation, disk cache |
+| - | Integrate thumbnails in FileRowView | ✅ | Async loading with placeholder |
+| - | Implement bulk delete with selection | ✅ | Select All, confirmation dialog |
+| - | Create FavouriteRecord SwiftData model | ✅ | Unique filePath constraint |
+| - | Create FavouriteService | ✅ | Toggle, batch status queries |
+| - | Add swipe-to-favourite in LibraryView | ✅ | Star indicator on favourites |
+| - | Implement RecentFilesView | ✅ | Progress bars, relative timestamps |
+| - | Create RecentFilesViewModel | ✅ | Filters missing files |
+| - | Implement SettingsView | ✅ | Recent tab visibility, vault filtering |
+| - | Add conditional Recent tab display | ✅ | Respects showRecentFiles setting |
+
+**Implementation Notes**:
+- SHA256 hashes used for ArchiveEntry IDs and cache directory names (64 chars, always filesystem-safe)
+- ThumbnailService caches to `Caches/Thumbnails/` with SHA256-based filenames
+- Favourites use SwiftData with unique filePath constraint
+- Recent files query ProgressRecord sorted by lastReadDate, filters vault files if setting enabled
+
 ### Phase 1D: Secure Vault
 
 | # | Task | Priority | Estimated Complexity |
@@ -512,16 +549,16 @@ let plaintext = try AES.GCM.open(sealedBox, using: key)
 
 ### Phase 1E: Polish & Testing
 
-| # | Task | Priority | Estimated Complexity |
-|---|------|----------|---------------------|
-| 41 | Add app icon and launch screen | Medium | Low |
-| 42 | Implement recent files list | Medium | Medium |
-| 43 | Add pull-to-refresh in library | Low | Low |
-| 44 | Create error handling and user feedback | High | Medium |
-| 45 | Optimize memory usage for large files | High | High |
-| 46 | Test on physical iPad device | High | - |
-| 47 | Fix orientation handling issues | Medium | Medium |
-| 48 | Performance testing with large libraries | Medium | Medium |
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| 41 | Add app icon and launch screen | Medium | Pending |
+| 42 | Implement recent files list | Medium | ✅ Done (Library Features) |
+| 43 | Add pull-to-refresh in library | Low | ✅ Done (already implemented) |
+| 44 | Create error handling and user feedback | High | Partial (ErrorView exists) |
+| 45 | Optimize memory usage for large files | High | ✅ Done (streaming extraction) |
+| 46 | Test on physical iPad device | High | Pending |
+| 47 | Fix orientation handling issues | Medium | Pending |
+| 48 | Performance testing with large libraries | Medium | Pending |
 
 ---
 
@@ -625,17 +662,22 @@ enum FileMagic {
 
 ### Manual Testing Checklist
 
-- [ ] Open CBZ file with 100+ pages
-- [ ] Open CBR (RAR4) file
-- [ ] Attempt to open RAR5 file (should show error)
-- [ ] Open PDF with images
-- [ ] Open folder of images
-- [ ] Zoom and pan on detailed page
-- [ ] Resume reading after app restart
-- [ ] Add file to vault
-- [ ] Access vault with Face ID
-- [ ] Access vault with password
-- [ ] Verify encrypted files via Finder
+- [x] Open CBZ file with 100+ pages
+- [ ] Open CBR (RAR4) file (blocked on libarchive)
+- [x] Attempt to open RAR5 file (should show error)
+- [x] Open PDF with images
+- [x] Open folder of images
+- [x] Open single image file (JPG, PNG, etc.)
+- [x] Zoom and pan on detailed page
+- [x] Resume reading after app restart
+- [x] Swipe to favourite a file
+- [x] Bulk select and delete files
+- [x] View recent files with progress
+- [x] Toggle Recent tab visibility in settings
+- [ ] Add file to vault (Phase 1D)
+- [ ] Access vault with Face ID (Phase 1D)
+- [ ] Access vault with password (Phase 1D)
+- [ ] Verify encrypted files via Finder (Phase 1D)
 - [ ] Rotate device while reading
 - [ ] Test with low memory warning
 
@@ -716,6 +758,7 @@ If publishing to App Store:
 | 0.1 | 2024-12-25 | Initial planning document |
 | 0.2 | 2024-12-26 | Updated for streaming architecture; marked Phase 1A-1B complete |
 | 0.3 | 2024-12-26 | Phase 1C complete: zoom, pan, fit modes, progress persistence, bookmarks |
+| 0.4 | 2025-12-26 | Library Features complete: thumbnails, favourites, recent files, bulk delete, image/folder readers, settings |
 
 ---
 
