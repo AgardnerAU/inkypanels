@@ -32,7 +32,7 @@
 
 ### Phase 1: MVP (Minimum Viable Product)
 
-> **Status**: Phase 1A-1C complete + Library Features. Phase 1D (Secure Vault) next.
+> **Status**: Phase 1A-1D complete + Library Features. Phase 1E (Polish & Testing) next.
 
 #### Core Reading Experience
 - [x] Open and display image files (PNG, JPG, WEBP, TIFF)
@@ -66,12 +66,12 @@
 - [x] Track read/unread status (via isCompleted in ProgressRecord)
 
 #### Secure Vault
-- [ ] Password-protected vault folder
-- [ ] Face ID / Touch ID authentication option
-- [ ] AES-256 encryption for vault contents
-- [ ] Hidden vault (invisible until authenticated)
-- [ ] Move files to/from vault
-- [ ] Files inaccessible via PC/Mac connection when encrypted
+- [x] Password-protected vault folder
+- [x] Face ID / Touch ID authentication option
+- [x] AES-256 encryption for vault contents
+- [x] Hidden vault (invisible until authenticated)
+- [x] Move files to/from vault
+- [x] Files inaccessible via PC/Mac connection when encrypted
 
 ---
 
@@ -123,7 +123,7 @@
 
 ## Project Structure
 
-> **Updated**: 2025-12-26 - Reflects Phase 1C + Library Features completion
+> **Updated**: 2025-12-26 - Reflects Phase 1D (Secure Vault) completion
 
 ```
 inkypanels/
@@ -159,32 +159,41 @@ inkypanels/
 │   ├── Services/
 │   │   ├── FileService.swift            # File system operations
 │   │   ├── ProgressService.swift        # SwiftData progress persistence
-│   │   ├── FavouriteService.swift       # SwiftData favourites (NEW)
-│   │   ├── ThumbnailService.swift       # Background thumbnail generation (NEW)
+│   │   ├── FavouriteService.swift       # SwiftData favourites
+│   │   ├── ThumbnailService.swift       # Background thumbnail generation
 │   │   ├── ArchiveReaderFactory.swift   # Format routing (images + folders)
 │   │   ├── ExtractionCache.swift        # Temp file management
+│   │   ├── EncryptionService.swift      # AES-256-GCM encryption (NEW)
+│   │   ├── KeychainService.swift        # Secure keychain storage (NEW)
+│   │   ├── VaultService.swift           # Vault orchestration (NEW)
 │   │   └── Readers/                     # Archive backends
 │   │       ├── ZIPFoundationReader.swift
 │   │       ├── PDFReader.swift
-│   │       ├── ImageReader.swift        # Single image files (NEW)
-│   │       ├── FolderReader.swift       # Folders of images (NEW)
+│   │       ├── ImageReader.swift        # Single image files
+│   │       ├── FolderReader.swift       # Folders of images
 │   │       └── LibArchiveReader.swift   # Feature-flagged
 │   │
 │   ├── ViewModels/
-│   │   ├── LibraryViewModel.swift       # Selection + favourites support
+│   │   ├── LibraryViewModel.swift       # Selection + favourites + vault
 │   │   ├── ReaderViewModel.swift        # Progress + bookmark logic
-│   │   └── RecentFilesViewModel.swift   # Recent files query (NEW)
+│   │   ├── RecentFilesViewModel.swift   # Recent files query
+│   │   └── VaultViewModel.swift         # Vault state management (NEW)
 │   │
 │   ├── Views/
 │   │   ├── Library/
-│   │   │   ├── LibraryView.swift        # Selection mode + swipe actions
+│   │   │   ├── LibraryView.swift        # Selection mode + swipe actions + vault
 │   │   │   └── FileRowView.swift        # Thumbnails + favourite indicator
 │   │   ├── Reader/
 │   │   │   ├── ReaderView.swift
 │   │   │   ├── PageView.swift           # Wraps ZoomableImageView
 │   │   │   ├── ReaderControlsView.swift # Fit mode + bookmark toggle
 │   │   │   └── PageSliderView.swift
-│   │   ├── Vault/                       # Placeholder for v0.4
+│   │   ├── Vault/                       # Secure vault views (NEW)
+│   │   │   ├── VaultView.swift          # Main router view
+│   │   │   ├── VaultSetupView.swift     # Initial vault creation
+│   │   │   ├── VaultUnlockView.swift    # Password/biometric unlock
+│   │   │   ├── VaultFileListView.swift  # File list + VaultReaderView
+│   │   │   └── VaultSettingsView.swift  # Toggle biometrics, change password
 │   │   └── Components/
 │   │       ├── ZoomableImageView.swift  # Pinch-zoom + pan
 │   │       ├── ThumbnailView.swift      # Async loading from ThumbnailService
@@ -227,8 +236,8 @@ inkypanels/
 |-----------|---------|--------|
 | SwiftUI | User interface | Active |
 | PDFKit | PDF page extraction | **Active** |
-| CryptoKit | AES-256 encryption | Planned (v0.4) |
-| LocalAuthentication | Face ID / Touch ID | Planned (v0.4) |
+| CryptoKit | AES-256 encryption | **Active** |
+| LocalAuthentication | Face ID / Touch ID | **Active** |
 
 ### Future (v0.3) - libarchive
 
@@ -532,20 +541,26 @@ let plaintext = try AES.GCM.open(sealedBox, using: key)
 - Favourites use SwiftData with unique filePath constraint
 - Recent files query ProgressRecord sorted by lastReadDate, filters vault files if setting enabled
 
-### Phase 1D: Secure Vault
+### Phase 1D: Secure Vault ✅ Complete
 
-| # | Task | Priority | Estimated Complexity |
-|---|------|----------|---------------------|
-| 31 | Create PasswordEntryView UI | High | Medium |
-| 32 | Implement KeychainService | High | Medium |
-| 33 | Add Face ID / Touch ID authentication | High | Medium |
-| 34 | Create EncryptionService with AES-256-GCM | High | High |
-| 35 | Implement vault manifest encryption | High | High |
-| 36 | Build VaultView file browser | High | Medium |
-| 37 | Add "Move to Vault" action | High | Medium |
-| 38 | Add "Remove from Vault" action | High | Medium |
-| 39 | Implement secure temporary file handling | High | Medium |
-| 40 | Hide .vault folder from normal browsing | High | Low |
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 31 | Create PasswordEntryView UI | ✅ | VaultSetupView + VaultUnlockView |
+| 32 | Implement KeychainService | ✅ | Actor-based with biometric support |
+| 33 | Add Face ID / Touch ID authentication | ✅ | Optional, user chooses during setup |
+| 34 | Create EncryptionService with AES-256-GCM | ✅ | PBKDF2 600k iterations |
+| 35 | Implement vault manifest encryption | ✅ | Encrypted JSON manifest |
+| 36 | Build VaultView file browser | ✅ | VaultFileListView with VaultReaderView |
+| 37 | Add "Move to Vault" action | ✅ | Swipe action in LibraryView |
+| 38 | Add "Remove from Vault" action | ✅ | Swipe action in VaultFileListView |
+| 39 | Implement secure temporary file handling | ✅ | Cleaned up on lock/background |
+| 40 | Hide .vault folder from normal browsing | ✅ | Hidden folder + dot prefix |
+
+**Implementation Notes**:
+- All vault services are actors for thread safety
+- Biometric is optional - user can always use password only
+- VaultSettingsView allows toggling biometrics, changing password, deleting vault
+- Files securely deleted (overwritten with random data before deletion)
 
 ### Phase 1E: Polish & Testing
 
@@ -674,10 +689,10 @@ enum FileMagic {
 - [x] Bulk select and delete files
 - [x] View recent files with progress
 - [x] Toggle Recent tab visibility in settings
-- [ ] Add file to vault (Phase 1D)
-- [ ] Access vault with Face ID (Phase 1D)
-- [ ] Access vault with password (Phase 1D)
-- [ ] Verify encrypted files via Finder (Phase 1D)
+- [ ] Add file to vault
+- [ ] Access vault with Face ID
+- [ ] Access vault with password
+- [ ] Verify encrypted files via Finder
 - [ ] Rotate device while reading
 - [ ] Test with low memory warning
 
@@ -759,6 +774,7 @@ If publishing to App Store:
 | 0.2 | 2024-12-26 | Updated for streaming architecture; marked Phase 1A-1B complete |
 | 0.3 | 2024-12-26 | Phase 1C complete: zoom, pan, fit modes, progress persistence, bookmarks |
 | 0.4 | 2025-12-26 | Library Features complete: thumbnails, favourites, recent files, bulk delete, image/folder readers, settings |
+| 0.5 | 2025-12-26 | Phase 1D complete: Secure Vault with AES-256 encryption, Face ID/Touch ID, keychain storage |
 
 ---
 

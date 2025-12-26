@@ -3,7 +3,7 @@
 This document captures architectural decisions for the inkypanels project.
 
 > **Last Updated**: 2025-12-26
-> **Status**: Phase 1C + Library Features complete. Phase 1D (Secure Vault) next.
+> **Status**: Phase 1D complete. Phase 1E (Polish & Testing) next.
 
 ---
 
@@ -16,7 +16,7 @@ This document captures architectural decisions for the inkypanels project.
 | Phase 1B: Archive Support | Complete | PDF, streaming extraction, security |
 | Phase 1C: Reader Experience | Complete | Zoom, pan, progress persistence, bookmarks |
 | Library Features | Complete | Thumbnails, favourites, recent files, bulk delete, settings |
-| Phase 1D: Secure Vault | Not Started | Encryption, biometrics |
+| Phase 1D: Secure Vault | **Complete** | AES-256 encryption, Face ID/Touch ID, keychain |
 
 ---
 
@@ -172,7 +172,7 @@ final class AppState {
 | **v0.2** | ZoomableImageView (pinch/pan), reading controls, progress persistence | Medium | **Done** |
 | **v0.2.1** | Thumbnails, favourites, recent files, bulk delete, image/folder readers, settings | Medium | **Done** |
 | **v0.3** | libarchive XCFramework for CBR/CB7, RAR5 detection | High | Blocked on build |
-| **v0.4** | Secure vault with AES-256 encryption | High | **Next** |
+| **v0.4** | Secure vault with AES-256 encryption | High | **Done** |
 
 **Rationale**: De-risk by getting core reading working before tackling C bridging and encryption.
 
@@ -700,36 +700,61 @@ final class FavouriteService {
 }
 ```
 
-### Vault Protocols (v0.4)
+### Vault Protocols (Implemented)
 
 ```swift
-// MARK: - Encryption Service
+// MARK: - Encryption Service (Implemented)
 
 protocol EncryptionServiceProtocol: Sendable {
     func encrypt(data: Data, withKey key: SymmetricKey) async throws -> Data
     func decrypt(data: Data, withKey key: SymmetricKey) async throws -> Data
     func deriveKey(from password: String, salt: Data) async throws -> SymmetricKey
+    nonisolated func generateSalt() -> Data
 }
 
-// MARK: - Keychain Service
+// Implementation: EncryptionService actor
+// - AES-256-GCM via CryptoKit
+// - PBKDF2-SHA256 with 600,000 iterations
+// - 32-byte random salt generation
+
+// MARK: - Keychain Service (Implemented)
 
 protocol KeychainServiceProtocol: Sendable {
     func save(_ data: Data, for key: String, requireBiometric: Bool) async throws
     func retrieve(for key: String, prompt: String) async throws -> Data?
     func delete(for key: String) async throws
+    nonisolated func exists(for key: String) -> Bool
+    func authenticateWithBiometric(reason: String) async throws
 }
 
-// MARK: - Vault Service
+// Implementation: KeychainService actor
+// - Uses Security framework (kSecClass)
+// - Biometric protection via kSecAccessControlBiometryCurrentSet
+// - LAContext for biometric authentication
+
+// MARK: - Vault Service (Implemented)
 
 protocol VaultServiceProtocol: Sendable {
+    func setupVault(password: String, enableBiometric: Bool) async throws
     func unlock(withPassword password: String) async throws
     func unlockWithBiometric() async throws
-    func lock()
+    func lock() async
     var isUnlocked: Bool { get }
+    var isVaultSetUp: Bool { get }
     func addFile(_ file: ComicFile) async throws
     func removeFile(_ file: VaultItem) async throws
     func listFiles() async throws -> [VaultItem]
+    func decryptFile(_ item: VaultItem) async throws -> URL
+    func isBiometricEnabled() async -> Bool
+    func setBiometricEnabled(_ enabled: Bool, password: String) async throws
+    func changePassword(currentPassword: String, newPassword: String) async throws
+    func deleteVault(password: String) async throws
 }
+
+// Implementation: VaultService actor with @preconcurrency conformance
+// - Encrypted manifest for file metadata
+// - Secure deletion (overwrite before delete)
+// - Temp file cleanup on lock
 ```
 
 ---
@@ -778,6 +803,9 @@ inkypanels/
 │   │   ├── ThumbnailService.swift       # Background thumbnail generation
 │   │   ├── ArchiveReaderFactory.swift   # Format routing (archives + images + folders)
 │   │   ├── ExtractionCache.swift        # Temp file management
+│   │   ├── EncryptionService.swift      # AES-256-GCM encryption (Phase 1D)
+│   │   ├── KeychainService.swift        # Secure keychain storage (Phase 1D)
+│   │   ├── VaultService.swift           # Vault orchestration (Phase 1D)
 │   │   └── Readers/
 │   │       ├── ZIPFoundationReader.swift
 │   │       ├── PDFReader.swift
@@ -786,19 +814,26 @@ inkypanels/
 │   │       └── LibArchiveReader.swift   # Feature-flagged
 │   │
 │   ├── ViewModels/
-│   │   ├── LibraryViewModel.swift       # Selection mode + favourites
+│   │   ├── LibraryViewModel.swift       # Selection mode + favourites + vault
 │   │   ├── ReaderViewModel.swift        # Progress + bookmarks
-│   │   └── RecentFilesViewModel.swift   # Recent files query
+│   │   ├── RecentFilesViewModel.swift   # Recent files query
+│   │   └── VaultViewModel.swift         # Vault state management (Phase 1D)
 │   │
 │   ├── Views/
 │   │   ├── Library/
-│   │   │   ├── LibraryView.swift        # Selection mode + swipe actions
+│   │   │   ├── LibraryView.swift        # Selection mode + swipe actions + vault
 │   │   │   └── FileRowView.swift        # Thumbnails + favourite indicator
 │   │   ├── Reader/
 │   │   │   ├── ReaderView.swift
 │   │   │   ├── PageView.swift
 │   │   │   ├── ReaderControlsView.swift
 │   │   │   └── PageSliderView.swift
+│   │   ├── Vault/                       # Phase 1D
+│   │   │   ├── VaultView.swift          # Main router view
+│   │   │   ├── VaultSetupView.swift     # Initial vault creation
+│   │   │   ├── VaultUnlockView.swift    # Password/biometric unlock
+│   │   │   ├── VaultFileListView.swift  # File list + VaultReaderView
+│   │   │   └── VaultSettingsView.swift  # Toggle biometrics, change password
 │   │   └── Components/
 │   │       ├── ZoomableImageView.swift  # Pinch-zoom + pan
 │   │       ├── ThumbnailView.swift      # Async loading from service
@@ -833,18 +868,16 @@ inkypanels/
 - [x] Phase 1B: Archive Support - PDF, streaming architecture, security
 - [x] Phase 1C: Reader Experience - Zoom, pan, progress persistence, bookmarks
 - [x] Library Features - Thumbnails, favourites, recent files, bulk delete, image/folder readers, settings
+- [x] Phase 1D: Secure Vault - AES-256 encryption, Face ID/Touch ID, keychain storage
 
-### Next: Phase 1D - Secure Vault
+### Next: Phase 1E - Polish & Testing
 
-1. Create PasswordEntryView UI
-2. Implement KeychainService for password storage
-3. Add Face ID / Touch ID authentication
-4. Create EncryptionService with AES-256-GCM
-5. Implement vault manifest encryption
-6. Build VaultView file browser
-7. Add "Move to Vault" / "Remove from Vault" actions
-8. Implement secure temporary file handling
-9. Hide .vault folder from normal browsing
+1. Add app icon and launch screen
+2. Implement comprehensive error handling and user feedback
+3. Test on physical iPad device (Face ID requires device)
+4. Fix any orientation handling issues
+5. Performance testing with large libraries
+6. Accessibility audit and improvements
 
 ### Blocked: libarchive Integration
 
@@ -865,3 +898,4 @@ libarchive infrastructure is ready (`LibArchiveReader` with feature flag). Requi
 | 2.0 | 2024-12-26 | Major revision: streaming extraction, security hardening, build-time feature flags |
 | 2.1 | 2024-12-26 | Phase 1C complete: SwiftData progress persistence, ZoomableImageView, bookmarks |
 | 2.2 | 2025-12-26 | Library Features: ADRs 17-21 (SHA256 IDs, ImageReader, FolderReader, ThumbnailService, Favourites, Recent Files) |
+| 2.3 | 2025-12-26 | Phase 1D complete: Vault protocols implemented with actor-based services |
