@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents an encrypted file stored in the vault
-struct VaultItem: Identifiable, Codable, Sendable {
+struct VaultItem: Identifiable, Codable, Sendable, Hashable {
     let id: UUID
     let originalName: String
     let encryptedFileName: String

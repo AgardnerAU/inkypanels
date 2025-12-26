@@ -37,6 +37,7 @@ final class LibraryViewModel {
 
     private let fileService: FileService
     private var favouriteService: FavouriteService?
+    private let vaultService = VaultService()
 
     // MARK: - Initialization
 
@@ -102,6 +103,34 @@ final class LibraryViewModel {
 
         // Persist change
         await favouriteService.toggleFavourite(filePath: path)
+    }
+
+    // MARK: - Vault Methods
+
+    func moveToVault(_ file: ComicFile) async {
+        // Check if vault is set up and unlocked
+        guard vaultService.isVaultSetUp else {
+            // User needs to set up vault first - they'll need to navigate to Vault tab
+            error = .vault(.vaultNotSetUp)
+            return
+        }
+
+        guard await vaultService.checkUnlocked() else {
+            // User needs to unlock vault first
+            error = .vault(.vaultNotSetUp)
+            return
+        }
+
+        do {
+            try await vaultService.addFile(file)
+            // Remove from current list
+            files.removeAll { $0.id == file.id }
+            selectedFiles.remove(file.id)
+        } catch let vaultError as VaultError {
+            error = .vault(vaultError)
+        } catch {
+            self.error = .vault(.encryptionFailed(underlying: error))
+        }
     }
 
     func refresh() async {

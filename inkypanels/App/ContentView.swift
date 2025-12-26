@@ -173,20 +173,7 @@ struct RecentFileRowView: View {
     }
 }
 
-// MARK: - Placeholder Views
-
-struct VaultView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "Vault Locked",
-                systemImage: "lock.fill",
-                description: Text("Secure storage coming in v0.4")
-            )
-            .navigationTitle("Vault")
-        }
-    }
-}
+// MARK: - Settings View
 
 struct SettingsView: View {
     @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true

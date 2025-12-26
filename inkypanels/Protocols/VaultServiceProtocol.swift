@@ -9,7 +9,7 @@ protocol VaultServiceProtocol: Sendable {
     func unlockWithBiometric() async throws
 
     /// Lock the vault
-    func lock()
+    func lock() async
 
     /// Whether the vault is currently unlocked
     var isUnlocked: Bool { get }

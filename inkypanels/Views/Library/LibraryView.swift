@@ -72,6 +72,7 @@ struct LibraryView: View {
                     .buttonStyle(.plain)
                     .swipeActions(edge: .leading) {
                         favouriteSwipeAction(for: file)
+                        vaultSwipeAction(for: file)
                     }
                 } else {
                     NavigationLink(value: file) {
@@ -79,6 +80,7 @@ struct LibraryView: View {
                     }
                     .swipeActions(edge: .leading) {
                         favouriteSwipeAction(for: file)
+                        vaultSwipeAction(for: file)
                     }
                 }
             }
@@ -97,6 +99,15 @@ struct LibraryView: View {
             )
         }
         .tint(.yellow)
+    }
+
+    private func vaultSwipeAction(for file: ComicFile) -> some View {
+        Button {
+            Task { await viewModel.moveToVault(file) }
+        } label: {
+            Label("Move to Vault", systemImage: "lock.fill")
+        }
+        .tint(.purple)
     }
 
     private func selectableRow(for file: ComicFile) -> some View {
