@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import ZIPFoundation
 
@@ -16,11 +17,11 @@ actor ZIPFoundationReader: ArchiveReader {
     init(url: URL) throws {
         self.archiveURL = url
 
-        // Create unique cache directory for this archive
+        // Create unique cache directory for this archive using SHA256 hash
         let cacheBase = FileManager.default.temporaryDirectory
             .appendingPathComponent("inkypanels-extraction", isDirectory: true)
-        let archiveHash = url.path.data(using: .utf8)?.base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_") ?? UUID().uuidString
+        let hash = SHA256.hash(data: Data(url.path.utf8))
+        let archiveHash = hash.compactMap { String(format: "%02x", $0) }.joined()
         self.cacheDirectory = cacheBase.appendingPathComponent(archiveHash, isDirectory: true)
 
         // Create cache directory

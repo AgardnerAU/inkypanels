@@ -1,9 +1,10 @@
+import CryptoKit
 import Foundation
 
 /// Represents a single entry (image) within an archive
 /// This is metadata only - no image data is held in memory
 struct ArchiveEntry: Identifiable, Sendable, Hashable {
-    /// Unique identifier within the archive (SHA256 of path)
+    /// Unique identifier within the archive (SHA256 hash of path - 64 chars, filesystem-safe)
     let id: String
 
     /// Original path within the archive
@@ -23,7 +24,8 @@ struct ArchiveEntry: Identifiable, Sendable, Hashable {
         self.fileName = URL(fileURLWithPath: path).lastPathComponent
         self.uncompressedSize = uncompressedSize
         self.index = index
-        // Use path hash as stable ID
-        self.id = path.data(using: .utf8)?.base64EncodedString() ?? UUID().uuidString
+        // Use SHA256 hash as stable ID (64 chars, always valid filename)
+        let hash = SHA256.hash(data: Data(path.utf8))
+        self.id = hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
