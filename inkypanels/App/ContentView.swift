@@ -76,12 +76,6 @@ struct ContentView: View {
             }
         }
         .fullScreenCover(isPresented: $showOpenedFileReader) {
-            // Clean up security-scoped resource when dismissed
-            if let url = appState?.openedFileURL {
-                url.stopAccessingSecurityScopedResource()
-                appState?.openedFileURL = nil
-            }
-        } content: {
             if let comic = openedComic {
                 NavigationStack {
                     ReaderView(comic: comic)

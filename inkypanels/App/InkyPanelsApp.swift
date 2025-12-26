@@ -19,26 +19,28 @@ struct InkyPanelsApp: App {
     private func handleOpenURL(_ url: URL) {
         // Start accessing security-scoped resource for files from outside the app sandbox
         let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
 
-        // Get file attributes
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: url.path) else {
-            if accessing { url.stopAccessingSecurityScopedResource() }
             return
         }
 
         do {
-            let attributes = try fileManager.attributesOfItem(atPath: url.path)
+            // Import file to app's Documents folder so it appears in library
+            let importedURL = try importFile(from: url)
+
+            let attributes = try fileManager.attributesOfItem(atPath: importedURL.path)
             let fileSize = (attributes[.size] as? Int64) ?? 0
             let modifiedDate = (attributes[.modificationDate] as? Date) ?? Date()
 
-            // Determine file type
-            let fileType = ComicFileType(from: url.pathExtension)
+            let fileType = ComicFileType(from: importedURL.pathExtension)
 
-            // Create ComicFile
             let comic = ComicFile(
-                url: url,
-                name: url.deletingPathExtension().lastPathComponent,
+                url: importedURL,
+                name: importedURL.deletingPathExtension().lastPathComponent,
                 fileType: fileType,
                 fileSize: fileSize,
                 modifiedDate: modifiedDate
@@ -46,10 +48,41 @@ struct InkyPanelsApp: App {
 
             // Set the file to open - ContentView will handle navigation
             appState.fileToOpen = comic
-            appState.openedFileURL = url
+            // No need to track openedFileURL since file is now imported
 
         } catch {
-            if accessing { url.stopAccessingSecurityScopedResource() }
+            print("Failed to import file: \(error)")
         }
+    }
+
+    private func importFile(from sourceURL: URL) throws -> URL {
+        let fileManager = FileManager.default
+
+        // Get the app's Documents/Comics directory
+        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let comicsURL = documentsURL.appendingPathComponent(Constants.Paths.comicsFolder, isDirectory: true)
+
+        // Create Comics directory if needed
+        try fileManager.createDirectory(at: comicsURL, withIntermediateDirectories: true)
+
+        // Destination URL
+        let fileName = sourceURL.lastPathComponent
+        var destinationURL = comicsURL.appendingPathComponent(fileName)
+
+        // Handle duplicate filenames
+        var counter = 1
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let ext = sourceURL.pathExtension
+
+        while fileManager.fileExists(atPath: destinationURL.path) {
+            let newName = "\(baseName) (\(counter)).\(ext)"
+            destinationURL = comicsURL.appendingPathComponent(newName)
+            counter += 1
+        }
+
+        // Copy the file
+        try fileManager.copyItem(at: sourceURL, to: destinationURL)
+
+        return destinationURL
     }
 }

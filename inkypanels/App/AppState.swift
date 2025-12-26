@@ -25,10 +25,7 @@ final class AppState {
     /// Global error for display
     var currentError: InkyPanelsError?
 
-    /// File opened from external source (Files app, Share sheet, etc.)
-    var openedFileURL: URL?
-
-    /// Comic file to open immediately (created from openedFileURL)
+    /// Comic file to open immediately (from Files app "Open In", etc.)
     var fileToOpen: ComicFile?
 }
 

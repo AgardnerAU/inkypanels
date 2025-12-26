@@ -65,19 +65,18 @@ actor KeychainService: KeychainServiceProtocol {
 
     func retrieve(for key: String, prompt: String) async throws -> Data? {
         let context = LAContext()
-        context.localizedReason = prompt
+        // Set localizedReason on LAContext instead of deprecated kSecUseOperationPrompt
+        if !prompt.isEmpty {
+            context.localizedReason = prompt
+        }
 
-        var query: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecReturnData as String: true,
             kSecUseAuthenticationContext as String: context
         ]
-
-        if !prompt.isEmpty {
-            query[kSecUseOperationPrompt as String] = prompt
-        }
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)

@@ -85,7 +85,10 @@ actor ThumbnailService: ThumbnailServiceProtocol {
             return 0
         }
 
-        for case let fileURL as URL in enumerator {
+        // Convert to array to avoid makeIterator issue in async context (Swift 6)
+        let fileURLs = enumerator.allObjects.compactMap { $0 as? URL }
+
+        for fileURL in fileURLs {
             if let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
                 totalSize += Int64(size)
             }
