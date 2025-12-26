@@ -32,7 +32,7 @@
 
 ### Phase 1: MVP (Minimum Viable Product)
 
-> **Status**: Phase 1A-1D complete + Library Features. Phase 1E (Polish & Testing) next.
+> **Status**: Phase 1 MVP complete. Device testing pending. Phase 2 (Enhanced Experience) next.
 
 #### Core Reading Experience
 - [x] Open and display image files (PNG, JPG, WEBP, TIFF)
@@ -562,18 +562,24 @@ let plaintext = try AES.GCM.open(sealedBox, using: key)
 - VaultSettingsView allows toggling biometrics, changing password, deleting vault
 - Files securely deleted (overwritten with random data before deletion)
 
-### Phase 1E: Polish & Testing
+### Phase 1E: Polish & Testing ✅ Complete
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| 41 | Add app icon and launch screen | Medium | Pending |
+| 41 | Add app icon and launch screen | Medium | ✅ Done |
 | 42 | Implement recent files list | Medium | ✅ Done (Library Features) |
 | 43 | Add pull-to-refresh in library | Low | ✅ Done (already implemented) |
-| 44 | Create error handling and user feedback | High | Partial (ErrorView exists) |
+| 44 | Create error handling and user feedback | High | ✅ Done (ErrorView with all error types) |
 | 45 | Optimize memory usage for large files | High | ✅ Done (streaming extraction) |
-| 46 | Test on physical iPad device | High | Pending |
-| 47 | Fix orientation handling issues | Medium | Pending |
-| 48 | Performance testing with large libraries | Medium | Pending |
+| 46 | Test on physical iPad device | High | Pending (requires device) |
+| 47 | Fix orientation handling issues | Medium | ✅ Done (zoom resets on rotation) |
+| 48 | Performance testing with large libraries | Medium | Pending (requires device) |
+
+**Implementation Notes**:
+- App icon uses 1024x1024 comic panel design
+- Launch screen centers logo on white background
+- ErrorView handles InkyPanelsError, ArchiveError, VaultError, ReaderError, FileSystemError with appropriate SF Symbols
+- ZoomableImageView resets zoom on orientation change to prevent offset issues
 
 ---
 
@@ -775,6 +781,7 @@ If publishing to App Store:
 | 0.3 | 2024-12-26 | Phase 1C complete: zoom, pan, fit modes, progress persistence, bookmarks |
 | 0.4 | 2025-12-26 | Library Features complete: thumbnails, favourites, recent files, bulk delete, image/folder readers, settings |
 | 0.5 | 2025-12-26 | Phase 1D complete: Secure Vault with AES-256 encryption, Face ID/Touch ID, keychain storage |
+| 0.6 | 2025-12-26 | Phase 1E complete: App icon, launch screen, improved error handling, orientation fixes |
 
 ---
 
