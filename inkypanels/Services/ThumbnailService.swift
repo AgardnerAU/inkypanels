@@ -154,7 +154,7 @@ actor ThumbnailService: ThumbnailServiceProtocol {
         // Double-check cache (another task might have generated it)
         if FileManager.default.fileExists(atPath: cacheURL.path),
            let data = try? Data(contentsOf: cacheURL) {
-            await addToMemoryCacheAsync(key: cacheKey, data: data)
+            addToMemoryCacheAsync(key: cacheKey, data: data)
             return data
         }
 
@@ -165,7 +165,7 @@ actor ThumbnailService: ThumbnailServiceProtocol {
         try? thumbnailData.write(to: cacheURL, options: .atomic)
 
         // Add to memory cache
-        await addToMemoryCacheAsync(key: cacheKey, data: thumbnailData)
+        addToMemoryCacheAsync(key: cacheKey, data: thumbnailData)
 
         return thumbnailData
     }

@@ -4,6 +4,7 @@ import SwiftUI
 struct VaultSettingsView: View {
     @Bindable var viewModel: VaultViewModel
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(Constants.UserDefaultsKey.hideVaultFromSidebar) private var hideVaultFromSidebar = false
 
     @State private var showBiometricToggle = false
     @State private var biometricPassword = ""
@@ -45,6 +46,15 @@ struct VaultSettingsView: View {
                     }
                 } header: {
                     Text("Security")
+                }
+
+                // Privacy section
+                Section {
+                    Toggle("Hide Vault from Sidebar", isOn: $hideVaultFromSidebar)
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    Text("When enabled, the Vault will be hidden from the sidebar. To access it, go to Settings and tap the app name 3 times.")
                 }
 
                 // Danger zone

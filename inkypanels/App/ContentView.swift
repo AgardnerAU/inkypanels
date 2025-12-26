@@ -4,11 +4,13 @@ import SwiftUI
 struct ContentView: View {
     @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
     @AppStorage(Constants.UserDefaultsKey.autoHideSidebar) private var autoHideSidebar = false
+    @AppStorage(Constants.UserDefaultsKey.hideVaultFromSidebar) private var hideVaultFromSidebar = false
     @State private var selectedTab: Tab? = .library
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(AppState.self) private var appState: AppState?
     @State private var showOpenedFileReader = false
     @State private var openedComic: ComicFile?
+    @State private var vaultTemporarilyRevealed = false
 
     enum Tab: String, Hashable {
         case library = "Library"
@@ -33,7 +35,11 @@ struct ContentView: View {
         if showRecentFiles {
             tabs.append(.recent)
         }
-        tabs.append(contentsOf: [.vault, .settings])
+        // Only show vault if not hidden, or if temporarily revealed
+        if !hideVaultFromSidebar || vaultTemporarilyRevealed {
+            tabs.append(.vault)
+        }
+        tabs.append(.settings)
         return tabs
     }
 
@@ -49,7 +55,7 @@ struct ContentView: View {
                     .listRowBackground(selectedTab == tab ? Color.accentColor.opacity(0.2) : nil)
                 }
             }
-            .navigationTitle("inkypanels")
+            .navigationTitle("Inky Panels")
         } detail: {
             switch selectedTab {
             case .library:
@@ -61,7 +67,9 @@ struct ContentView: View {
             case .vault:
                 VaultView()
             case .settings:
-                SettingsView()
+                SettingsView(onRevealVault: {
+                    vaultTemporarilyRevealed = true
+                })
             case .none:
                 LibraryView()
             }
@@ -97,14 +105,19 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // Ensure sidebar is visible by default when app launches
-            columnVisibility = .all
+            // Respect auto-hide setting on launch
+            columnVisibility = autoHideSidebar ? .detailOnly : .all
+        }
+        .onChange(of: selectedTab) { _, _ in
+            // Auto-hide sidebar after tab selection when enabled
+            if autoHideSidebar {
+                columnVisibility = .detailOnly
+            }
         }
         .onChange(of: autoHideSidebar) { _, newValue in
             // When auto-hide is disabled, show the sidebar
-            if !newValue {
-                columnVisibility = .all
-            }
+            // When enabled, hide it immediately
+            columnVisibility = newValue ? .detailOnly : .all
         }
     }
 }
@@ -332,6 +345,13 @@ struct SettingsView: View {
     @AppStorage(Constants.UserDefaultsKey.showRecentFiles) private var showRecentFiles = true
     @AppStorage(Constants.UserDefaultsKey.hideVaultFromRecent) private var hideVaultFromRecent = false
     @AppStorage(Constants.UserDefaultsKey.autoHideSidebar) private var autoHideSidebar = false
+    @AppStorage(Constants.UserDefaultsKey.clearRecentOnExit) private var clearRecentOnExit = false
+    @AppStorage(Constants.UserDefaultsKey.hideVaultFromSidebar) private var hideVaultFromSidebar = false
+
+    var onRevealVault: (() -> Void)?
+
+    @State private var tapCount = 0
+    @State private var showVaultRevealedMessage = false
 
     var body: some View {
         NavigationStack {
@@ -347,18 +367,47 @@ struct SettingsView: View {
                 Section {
                     Toggle("Show Recent Files Tab", isOn: $showRecentFiles)
                     Toggle("Hide Vault Files from Recent", isOn: $hideVaultFromRecent)
+                    Toggle("Clear Recent Files on Exit", isOn: $clearRecentOnExit)
                 } header: {
                     Text("Recent Files")
                 } footer: {
-                    Text("When enabled, files from the vault will not appear in the Recent tab.")
+                    Text("When 'Clear on Exit' is enabled, your reading history will be automatically cleared when leaving the app.")
                 }
 
                 Section("About") {
                     LabeledContent("Version", value: Constants.App.version)
-                    LabeledContent("App", value: Constants.App.name)
+
+                    // App name with secret triple-tap to reveal hidden vault
+                    HStack {
+                        Text("App")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(Constants.App.name)
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if hideVaultFromSidebar {
+                            tapCount += 1
+                            if tapCount >= 3 {
+                                onRevealVault?()
+                                showVaultRevealedMessage = true
+                                tapCount = 0
+                            }
+                            // Reset tap count after 1 second of no taps
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                tapCount = 0
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Settings")
+            .alert("Vault Revealed", isPresented: $showVaultRevealedMessage) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("The Vault is now visible in the sidebar.")
+            }
         }
     }
 }

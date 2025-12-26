@@ -45,10 +45,15 @@ final class VaultViewModel {
     var selectedFile: VaultItem?
     var decryptedFileURL: URL?
 
+    // Thumbnail cache (in-memory only for security)
+    var thumbnailCache: [UUID: Data] = [:]
+    private var thumbnailLoadingTasks: [UUID: Task<Data?, Never>] = [:]
+
     // MARK: - Dependencies
 
     private var vaultService: VaultService { VaultService.shared }
     private let keychainService = KeychainService()
+    private let thumbnailService = ThumbnailService()
 
     // MARK: - Init
 
@@ -181,6 +186,64 @@ final class VaultViewModel {
         vaultState = .locked
         vaultItems = []
         decryptedFileURL = nil
+        // Clear thumbnail cache for security
+        thumbnailCache.removeAll()
+        thumbnailLoadingTasks.values.forEach { $0.cancel() }
+        thumbnailLoadingTasks.removeAll()
+    }
+
+    // MARK: - Thumbnails
+
+    /// Load thumbnail for a vault item (decrypts temporarily to extract first page)
+    func loadThumbnail(for item: VaultItem) async -> Data? {
+        // Return cached thumbnail if available
+        if let cached = thumbnailCache[item.id] {
+            return cached
+        }
+
+        // Check if already loading
+        if let existingTask = thumbnailLoadingTasks[item.id] {
+            return await existingTask.value
+        }
+
+        // Start loading task
+        let task = Task<Data?, Never> {
+            do {
+                // Decrypt the file temporarily
+                guard let decryptedURL = try? await vaultService.decryptFile(item) else {
+                    return nil
+                }
+
+                // Create a temporary ComicFile for thumbnail generation
+                let comicFile = ComicFile(
+                    id: item.id,
+                    url: decryptedURL,
+                    name: item.originalName,
+                    fileType: item.fileType,
+                    fileSize: item.fileSize,
+                    modifiedDate: item.addedDate
+                )
+
+                // Generate thumbnail
+                let thumbnailData = try await thumbnailService.thumbnail(for: comicFile)
+
+                // Cache it (only in memory for security)
+                _ = await MainActor.run {
+                    self.thumbnailCache[item.id] = thumbnailData
+                    self.thumbnailLoadingTasks.removeValue(forKey: item.id)
+                }
+
+                return thumbnailData
+            } catch {
+                _ = await MainActor.run {
+                    self.thumbnailLoadingTasks.removeValue(forKey: item.id)
+                }
+                return nil
+            }
+        }
+
+        thumbnailLoadingTasks[item.id] = task
+        return await task.value
     }
 
     // MARK: - File Operations

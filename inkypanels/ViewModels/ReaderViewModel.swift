@@ -198,15 +198,11 @@ final class ReaderViewModel {
 
     /// Update page layout based on current orientation
     func updateLayoutForOrientation(isLandscape: Bool) {
-        let newDualMode: Bool
-        switch settings.pageLayout {
-        case .single:
-            newDualMode = false
-        case .dual:
-            newDualMode = true
-        case .auto:
-            newDualMode = isLandscape
-        }
+        // Update settings with current orientation
+        settings.isLandscape = isLandscape
+
+        // Get the layout for current orientation
+        let newDualMode = settings.currentLayout == .dual
 
         if newDualMode != isDualPageMode {
             isDualPageMode = newDualMode

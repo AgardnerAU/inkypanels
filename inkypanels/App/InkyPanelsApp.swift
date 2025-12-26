@@ -4,6 +4,16 @@ import SwiftData
 @main
 struct InkyPanelsApp: App {
     @State private var appState = AppState.shared
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(Constants.UserDefaultsKey.clearRecentOnExit) private var clearRecentOnExit = false
+
+    var sharedModelContainer: ModelContainer = {
+        do {
+            return try ModelContainer(for: ProgressRecord.self, FavouriteRecord.self)
+        } catch {
+            fatalError("Could not create ModelContainer: \(error)")
+        }
+    }()
 
     var body: some Scene {
         WindowGroup {
@@ -13,7 +23,21 @@ struct InkyPanelsApp: App {
                     handleOpenURL(url)
                 }
         }
-        .modelContainer(for: [ProgressRecord.self, FavouriteRecord.self])
+        .modelContainer(sharedModelContainer)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background && clearRecentOnExit {
+                clearRecentFiles()
+            }
+        }
+    }
+
+    @MainActor
+    private func clearRecentFiles() {
+        let context = sharedModelContainer.mainContext
+        let progressService = ProgressService(modelContext: context)
+        Task {
+            await progressService.clearAllProgress()
+        }
     }
 
     private func handleOpenURL(_ url: URL) {

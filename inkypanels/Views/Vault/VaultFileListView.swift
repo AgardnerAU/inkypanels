@@ -27,15 +27,31 @@ struct VaultFileListView: View {
                     Button {
                         viewModel.lock()
                     } label: {
-                        Image(systemName: "lock.fill")
+                        Label("Lock", systemImage: "lock.fill")
+                            .font(.subheadline.weight(.semibold))
                     }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        viewModel.showSettings = true
+                    Menu {
+                        Button {
+                            viewModel.lock()
+                        } label: {
+                            Label("Lock Vault", systemImage: "lock.fill")
+                        }
+
+                        Divider()
+
+                        Button {
+                            viewModel.showSettings = true
+                        } label: {
+                            Label("Vault Settings", systemImage: "gear")
+                        }
                     } label: {
-                        Image(systemName: "gear")
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
                     }
                 }
             }
@@ -79,7 +95,7 @@ struct VaultFileListView: View {
                 Button {
                     navigationPath.append(item)
                 } label: {
-                    VaultFileRowView(item: item)
+                    VaultFileRowView(item: item, viewModel: viewModel)
                 }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
@@ -103,21 +119,15 @@ struct VaultFileListView: View {
 
 struct VaultFileRowView: View {
     let item: VaultItem
+    @Bindable var viewModel: VaultViewModel
 
-    private let iconSize: CGFloat = 50
+    private let thumbnailSize = CGSize(width: 50, height: 70)
 
     var body: some View {
         HStack(spacing: 12) {
-            // File type icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(.systemGray5))
-                    .frame(width: iconSize, height: iconSize)
-
-                Image(systemName: item.fileType.icon)
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
+            // Thumbnail
+            VaultThumbnailView(item: item, viewModel: viewModel, size: thumbnailSize)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.originalName)
@@ -151,6 +161,65 @@ struct VaultFileRowView: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Vault Thumbnail View
+
+struct VaultThumbnailView: View {
+    let item: VaultItem
+    @Bindable var viewModel: VaultViewModel
+    let size: CGSize
+
+    @State private var thumbnailData: Data?
+    @State private var isLoading = true
+
+    var body: some View {
+        Group {
+            if let thumbnailData,
+               let uiImage = UIImage(data: thumbnailData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+            } else if isLoading {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.1))
+                    .frame(width: size.width, height: size.height)
+                    .overlay {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                    }
+            } else {
+                // Placeholder for failed loads
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(width: size.width, height: size.height)
+                    .overlay {
+                        Image(systemName: item.fileType.icon)
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+        }
+        .task(priority: .userInitiated) {
+            await loadThumbnail()
+        }
+    }
+
+    private func loadThumbnail() async {
+        // Check if already cached in viewModel
+        if let cached = viewModel.thumbnailCache[item.id] {
+            thumbnailData = cached
+            isLoading = false
+            return
+        }
+
+        // Load thumbnail through viewModel
+        let data = await viewModel.loadThumbnail(for: item)
+        thumbnailData = data
+        isLoading = false
     }
 }
 

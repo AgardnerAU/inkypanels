@@ -10,6 +10,10 @@ struct ReaderControlsView: View {
     let onClose: () -> Void
     let settings = ReaderSettings.shared
 
+    @State private var isEditingPage = false
+    @State private var pageInputText = ""
+    @FocusState private var isPageInputFocused: Bool
+
     var body: some View {
         VStack {
             topBar
@@ -55,18 +59,58 @@ struct ReaderControlsView: View {
                     .background(Circle().fill(.ultraThinMaterial))
             }
 
-            readerSettingsMenu
+            displayOptionsMenu
         }
         .padding()
     }
 
-    private var readerSettingsMenu: some View {
+    private var displayOptionsMenu: some View {
         Menu {
-            // Page Layout Section
-            Section("Page Layout") {
+            // Display Options only
+            Toggle(isOn: Binding(
+                get: { settings.showPageGap },
+                set: { settings.showPageGap = $0 }
+            )) {
+                Label("Page Gap", systemImage: "rectangle.split.2x1")
+            }
+
+            Toggle(isOn: Binding(
+                get: { settings.smartSpreadDetection },
+                set: { settings.smartSpreadDetection = $0 }
+            )) {
+                Label("Smart Spreads", systemImage: "sparkles.rectangle.stack")
+            }
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(.ultraThinMaterial))
+        }
+    }
+
+    private var fitModeMenu: some View {
+        Menu {
+            // Fit Mode Section
+            Section("Fit Mode") {
+                ForEach(FitMode.allCases) { mode in
+                    Button {
+                        fitMode = mode
+                    } label: {
+                        if fitMode == mode {
+                            Label(mode.rawValue, systemImage: "checkmark")
+                        } else {
+                            Text(mode.rawValue)
+                        }
+                    }
+                }
+            }
+
+            // Page Layout Section (per-orientation)
+            Section(settings.isLandscape ? "Layout (Landscape)" : "Layout (Portrait)") {
                 Picker("Layout", selection: Binding(
-                    get: { settings.pageLayout },
-                    set: { settings.pageLayout = $0 }
+                    get: { settings.currentLayout },
+                    set: { settings.setCurrentLayout($0) }
                 )) {
                     ForEach(PageLayout.allCases) { layout in
                         Label(layout.rawValue, systemImage: layout.icon)
@@ -85,41 +129,6 @@ struct ReaderControlsView: View {
                         Label(direction.rawValue, systemImage: direction.icon)
                             .tag(direction)
                     }
-                }
-            }
-
-            // Display Options Section
-            Section("Display Options") {
-                Toggle(isOn: Binding(
-                    get: { settings.showPageGap },
-                    set: { settings.showPageGap = $0 }
-                )) {
-                    Label("Page Gap", systemImage: "rectangle.split.2x1")
-                }
-
-                Toggle(isOn: Binding(
-                    get: { settings.smartSpreadDetection },
-                    set: { settings.smartSpreadDetection = $0 }
-                )) {
-                    Label("Smart Spreads", systemImage: "sparkles.rectangle.stack")
-                }
-            }
-        } label: {
-            Image(systemName: "gearshape")
-                .font(.title2)
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(.ultraThinMaterial))
-        }
-    }
-
-    private var fitModeMenu: some View {
-        Menu {
-            ForEach(FitMode.allCases) { mode in
-                Button {
-                    fitMode = mode
-                } label: {
-                    Label(mode.rawValue, systemImage: mode.icon)
                 }
             }
         } label: {
@@ -156,13 +165,88 @@ struct ReaderControlsView: View {
     }
 
     private var pageIndicator: some View {
-        Text("Page \(currentPage + 1) of \(totalPages)")
-            .font(.subheadline)
-            .fontWeight(.medium)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(.ultraThinMaterial))
+        Group {
+            if isEditingPage {
+                pageInputField
+            } else {
+                pageDisplayButton
+            }
+        }
+    }
+
+    private var pageDisplayButton: some View {
+        Button {
+            pageInputText = "\(currentPage + 1)"
+            isEditingPage = true
+            isPageInputFocused = true
+        } label: {
+            Text("Page \(currentPage + 1) of \(totalPages)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(.ultraThinMaterial))
+        }
+    }
+
+    private var pageInputField: some View {
+        HStack(spacing: 4) {
+            Text("Page")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+
+            TextField("", text: $pageInputText)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .frame(width: 50)
+                .focused($isPageInputFocused)
+                .onSubmit {
+                    navigateToEnteredPage()
+                }
+
+            Text("of \(totalPages)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+
+            Button {
+                navigateToEnteredPage()
+            } label: {
+                Image(systemName: "arrow.right.circle.fill")
+                    .foregroundStyle(.white)
+            }
+
+            Button {
+                isEditingPage = false
+                isPageInputFocused = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .onChange(of: isPageInputFocused) { _, focused in
+            if !focused {
+                isEditingPage = false
+            }
+        }
+    }
+
+    private func navigateToEnteredPage() {
+        if let pageNumber = Int(pageInputText) {
+            // Convert from 1-based user input to 0-based index
+            let targetPage = max(0, min(totalPages - 1, pageNumber - 1))
+            currentPage = targetPage
+        }
+        isEditingPage = false
+        isPageInputFocused = false
     }
 }
 

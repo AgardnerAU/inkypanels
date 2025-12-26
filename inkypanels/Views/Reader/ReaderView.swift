@@ -181,7 +181,7 @@ struct ReaderView: View {
             let isLandscape = geometry.size.width > geometry.size.height
             viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
         }
-        .onChange(of: viewModel.settings.pageLayout) { _, _ in
+        .onChange(of: viewModel.settings.currentLayout) { _, _ in
             let isLandscape = geometry.size.width > geometry.size.height
             viewModel.updateLayoutForOrientation(isLandscape: isLandscape)
         }

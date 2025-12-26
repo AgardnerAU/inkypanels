@@ -5,7 +5,7 @@ import CoreGraphics
 enum Constants {
     /// App metadata
     enum App {
-        static let name = "inkypanels"
+        static let name = "Inky Panels"
         static let version = "0.1.0"
         static let bundleIdentifier = "com.inkypanels.app"
     }
@@ -64,5 +64,7 @@ enum Constants {
         static let showRecentFiles = "showRecentFiles"
         static let hideVaultFromRecent = "hideVaultFromRecent"
         static let autoHideSidebar = "autoHideSidebar"
+        static let clearRecentOnExit = "clearRecentOnExit"
+        static let hideVaultFromSidebar = "hideVaultFromSidebar"
     }
 }

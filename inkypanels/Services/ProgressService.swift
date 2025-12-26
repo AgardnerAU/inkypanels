@@ -127,4 +127,19 @@ final class ProgressService: ProgressServiceProtocol {
             return []
         }
     }
+
+    /// Clear all progress records (recent files history)
+    func clearAllProgress() async {
+        let descriptor = FetchDescriptor<ProgressRecord>()
+
+        do {
+            let allRecords = try modelContext.fetch(descriptor)
+            for record in allRecords {
+                modelContext.delete(record)
+            }
+            try modelContext.save()
+        } catch {
+            print("Failed to clear all progress: \(error)")
+        }
+    }
 }
