@@ -6,6 +6,13 @@ enum ArchiveReaderFactory {
     /// Create a reader for the given archive URL
     /// Routes to the appropriate backend based on file extension and magic bytes
     static func reader(for url: URL) throws -> any ArchiveReader {
+        // Check if it's a directory first
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+           isDirectory.boolValue {
+            return try FolderReader(url: url)
+        }
+
         let ext = url.pathExtension.lowercased()
 
         switch ext {
@@ -29,6 +36,10 @@ enum ArchiveReaderFactory {
         case "pdf":
             return try PDFReader(url: url)
 
+        // Single image files
+        case "jpg", "jpeg", "png", "gif", "webp", "tiff", "tif", "heic", "heif":
+            return try ImageReader(url: url)
+
         default:
             throw InkyPanelsError.archive(.unsupportedFormat(ext.uppercased()))
         }
@@ -49,6 +60,9 @@ enum ArchiveReaderFactory {
             return false
             #endif
 
+        case "jpg", "jpeg", "png", "gif", "webp", "tiff", "tif", "heic", "heif":
+            return true
+
         default:
             return false
         }
@@ -56,7 +70,7 @@ enum ArchiveReaderFactory {
 
     /// List of currently supported formats for UI display
     static var supportedFormats: [String] {
-        var formats = ["CBZ", "ZIP", "PDF"]
+        var formats = ["CBZ", "ZIP", "PDF", "Images", "Folders"]
         #if LIBARCHIVE_ENABLED
         formats += ["CBR", "RAR", "CB7", "7Z"]
         #endif
