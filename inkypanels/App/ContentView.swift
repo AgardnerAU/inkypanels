@@ -67,9 +67,16 @@ struct ContentView: View {
             case .vault:
                 VaultView()
             case .settings:
-                SettingsView(onRevealVault: {
-                    vaultTemporarilyRevealed = true
-                })
+                SettingsView(
+                    isVaultTemporarilyRevealed: vaultTemporarilyRevealed,
+                    onToggleVaultVisibility: {
+                        vaultTemporarilyRevealed.toggle()
+                        // If hiding vault and currently selected, switch to library
+                        if !vaultTemporarilyRevealed && selectedTab == .vault {
+                            selectedTab = .library
+                        }
+                    }
+                )
             case .none:
                 LibraryView()
             }
@@ -339,10 +346,12 @@ struct SettingsView: View {
     @AppStorage(Constants.UserDefaultsKey.clearRecentOnExit) private var clearRecentOnExit = false
     @AppStorage(Constants.UserDefaultsKey.hideVaultFromSidebar) private var hideVaultFromSidebar = false
 
-    var onRevealVault: (() -> Void)?
+    var isVaultTemporarilyRevealed: Bool = false
+    var onToggleVaultVisibility: (() -> Void)?
 
     @State private var tapCount = 0
-    @State private var showVaultRevealedMessage = false
+    @State private var showVaultVisibilityMessage = false
+    @State private var vaultWillBeRevealed = false
 
     var body: some View {
         NavigationStack {
@@ -353,10 +362,12 @@ struct SettingsView: View {
                 aboutSection
             }
             .navigationTitle("Settings")
-            .alert("Vault Revealed", isPresented: $showVaultRevealedMessage) {
+            .alert(vaultWillBeRevealed ? "Vault Revealed" : "Vault Hidden", isPresented: $showVaultVisibilityMessage) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text("The Vault is now visible in the sidebar.")
+                Text(vaultWillBeRevealed
+                    ? "The Vault is now visible in the sidebar."
+                    : "The Vault is now hidden from the sidebar.")
             }
         }
     }
@@ -400,11 +411,14 @@ struct SettingsView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            // Only allow toggle when vault is hidden from sidebar setting
             if hideVaultFromSidebar {
                 tapCount += 1
                 if tapCount >= 3 {
-                    onRevealVault?()
-                    showVaultRevealedMessage = true
+                    // Determine what state we're toggling to
+                    vaultWillBeRevealed = !isVaultTemporarilyRevealed
+                    onToggleVaultVisibility?()
+                    showVaultVisibilityMessage = true
                     tapCount = 0
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
