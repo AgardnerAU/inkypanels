@@ -57,6 +57,7 @@ enum ComicFileType: String, CaseIterable, Sendable {
 
     // Documents
     case pdf
+    case epub
 
     // Image formats
     case png
@@ -120,6 +121,8 @@ enum ComicFileType: String, CaseIterable, Sendable {
             return "book.closed"
         case .pdf:
             return "doc.fill"
+        case .epub:
+            return "book.fill"
         case .folder:
             return "folder.fill"
         case .png, .jpg, .jpeg, .webp, .tiff, .tif, .gif, .heic:
@@ -141,6 +144,7 @@ enum ComicFileType: String, CaseIterable, Sendable {
         case "rar": self = .rar
         case "7z": self = .sevenZip
         case "pdf": self = .pdf
+        case "epub": self = .epub
         case "png": self = .png
         case "jpg": self = .jpg
         case "jpeg": self = .jpeg
@@ -159,7 +163,7 @@ enum SupportedFormat {
     static let images: Set<String> = ["png", "jpg", "jpeg", "webp", "tiff", "tif", "gif", "heic"]
     static let comics: Set<String> = ["cbz", "cbr", "cb7", "cba"]
     static let archives: Set<String> = ["zip", "rar", "7z"]
-    static let documents: Set<String> = ["pdf"]
+    static let documents: Set<String> = ["pdf", "epub"]
 
     static var all: Set<String> {
         images.union(comics).union(archives).union(documents)

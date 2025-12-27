@@ -39,6 +39,7 @@
 		5B236D0CC35AE566D7AA2270 /* ReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47104F001FDE866E3A321297 /* ReadingProgress.swift */; };
 		5BF345C1301AECF3AF975FE3 /* RecentFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EB54B9E58B550A29A24B84 /* RecentFilesViewModel.swift */; };
 		5BF345C1301AECF3AF975FE4 /* FavouritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EB54B9E58B550A29A24B85 /* FavouritesViewModel.swift */; };
+		5F33A2242E5B663AF3958E70 /* EPubReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9A8ED4CEE6CE29FB638270 /* EPubReader.swift */; };
 		5F33A2242E5B663AF3958F79 /* PDFReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9A8ED4CEE6CE29FB63827F /* PDFReader.swift */; };
 		66540F0613CB65F1BED2A897 /* ReaderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB99353AE693B97463A655EA /* ReaderViewModel.swift */; };
 		66724E91EFA0E92D192BC20F /* ReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC891634E80A200CD8569F8E /* ReaderView.swift */; };
@@ -137,6 +138,7 @@
 		A36681132EB41A04D8908A48 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A7804C443BBF14AD4BE942C4 /* ImageReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageReader.swift; sourceTree = "<group>"; };
 		A7F495F90A33A93CBCA0E480 /* ThumbnailServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailServiceProtocol.swift; sourceTree = "<group>"; };
+		AA9A8ED4CEE6CE29FB638270 /* EPubReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPubReader.swift; sourceTree = "<group>"; };
 		AA9A8ED4CEE6CE29FB63827F /* PDFReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReader.swift; sourceTree = "<group>"; };
 		B062F004AB67E9505640B34F /* ReadingProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingProgressTests.swift; sourceTree = "<group>"; };
 		B0FE1F52B84D8C79CB268E38 /* ZIPFoundationReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZIPFoundationReader.swift; sourceTree = "<group>"; };
@@ -307,6 +309,7 @@
 		92C687FCD57D90B03F226F96 /* Readers */ = {
 			isa = PBXGroup;
 			children = (
+				AA9A8ED4CEE6CE29FB638270 /* EPubReader.swift */,
 				EF2BBF499641DF4A96C1BD33 /* FolderReader.swift */,
 				A7804C443BBF14AD4BE942C4 /* ImageReader.swift */,
 				508AA9913BB5DD4C2F8E701C /* LibArchiveReader.swift */,
@@ -613,6 +616,7 @@
 				A601A486C2CC722E6F3BF147 /* LibraryView.swift in Sources */,
 				56A4C703BC0B1FAF39BC653C /* LibraryViewModel.swift in Sources */,
 				4EEC85A83743DA20097E8D35 /* LoadingView.swift in Sources */,
+				5F33A2242E5B663AF3958E70 /* EPubReader.swift in Sources */,
 				5F33A2242E5B663AF3958F79 /* PDFReader.swift in Sources */,
 				204E011B8CB4925C3E028ED6 /* PageSliderView.swift in Sources */,
 				F22DF46659B89DBB55EC7674 /* PageView.swift in Sources */,

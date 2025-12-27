@@ -36,6 +36,10 @@ enum ArchiveReaderFactory {
         case "pdf":
             return try PDFReader(url: url)
 
+        // ePub documents
+        case "epub":
+            return try EPubReader(url: url)
+
         // Single image files
         case "jpg", "jpeg", "png", "gif", "webp", "tiff", "tif", "heic", "heif":
             return try ImageReader(url: url)
@@ -50,7 +54,7 @@ enum ArchiveReaderFactory {
         let normalized = ext.lowercased()
 
         switch normalized {
-        case "cbz", "zip", "pdf":
+        case "cbz", "zip", "pdf", "epub":
             return true
 
         case "cbr", "rar", "cb7", "7z":
@@ -70,7 +74,7 @@ enum ArchiveReaderFactory {
 
     /// List of currently supported formats for UI display
     static var supportedFormats: [String] {
-        var formats = ["CBZ", "ZIP", "PDF", "Images", "Folders"]
+        var formats = ["CBZ", "ZIP", "PDF", "EPUB", "Images", "Folders"]
         #if LIBARCHIVE_ENABLED
         formats += ["CBR", "RAR", "CB7", "7Z"]
         #endif
