@@ -157,11 +157,6 @@ struct RecentFilesView: View {
             viewModel.configureService(modelContext: modelContext)
             await viewModel.loadRecentFiles()
         }
-        .onAppear {
-            Task {
-                await viewModel.loadRecentFiles()
-            }
-        }
     }
 
     private var recentFilesList: some View {
@@ -268,11 +263,6 @@ struct FavouritesView: View {
         .task {
             viewModel.configureService(modelContext: modelContext)
             await viewModel.loadFavourites()
-        }
-        .onAppear {
-            Task {
-                await viewModel.loadFavourites()
-            }
         }
     }
 

@@ -32,6 +32,7 @@ actor FolderReader: ArchiveReader {
         let fileManager = FileManager.default
 
         // Use enumerator for recursive traversal of all subdirectories
+        // Collect URLs synchronously first (enumerator can't be iterated in async contexts in Swift 6)
         guard let enumerator = fileManager.enumerator(
             at: archiveURL,
             includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
@@ -39,11 +40,12 @@ actor FolderReader: ArchiveReader {
         ) else {
             throw InkyPanelsError.fileSystem(.fileNotFound(archiveURL))
         }
+        let allURLs = enumerator.allObjects.compactMap { $0 as? URL }
 
         // Filter to image files only
         var entries: [ArchiveEntry] = []
 
-        for case let url as URL in enumerator {
+        for url in allURLs {
             // Skip directories
             let resourceValues = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
             guard resourceValues?.isRegularFile == true else { continue }
