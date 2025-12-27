@@ -8,6 +8,7 @@ struct LibraryView: View {
     @State private var showDeleteConfirmation = false
     @State private var showImportPicker = false
     @State private var showPendingImports = false
+    @State private var shouldPerformDelete = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -52,9 +53,15 @@ struct LibraryView: View {
                 titleVisibility: .visible
             ) {
                 Button("Delete", role: .destructive) {
-                    Task { await viewModel.deleteSelected() }
+                    shouldPerformDelete = true
                 }
                 Button("Cancel", role: .cancel) {}
+            }
+            .onChange(of: shouldPerformDelete) { _, shouldDelete in
+                if shouldDelete {
+                    shouldPerformDelete = false
+                    Task { await viewModel.deleteSelected() }
+                }
             }
             .sheet(isPresented: $showImportPicker) {
                 importPickerSheet
@@ -362,6 +369,8 @@ struct LibraryView: View {
         PendingImportsView(
             files: viewModel.pendingImports,
             isImporting: viewModel.isImporting,
+            importProgress: viewModel.importProgress,
+            importTotal: viewModel.importTotal,
             onImportAll: {
                 Task {
                     await viewModel.importAllPendingFiles()
