@@ -234,6 +234,7 @@ struct LibraryView: View {
                         favouriteSwipeAction(for: file)
                         vaultSwipeAction(for: file)
                     }
+                    .contextMenu { contextMenuActions(for: file) }
                 } else {
                     NavigationLink(value: file) {
                         FileRowView(file: file, isFavourite: viewModel.isFavourite(file))
@@ -242,6 +243,7 @@ struct LibraryView: View {
                         favouriteSwipeAction(for: file)
                         vaultSwipeAction(for: file)
                     }
+                    .contextMenu { contextMenuActions(for: file) }
                 }
             }
             .onDelete(perform: viewModel.isSelecting ? nil : deleteFiles)
