@@ -566,6 +566,22 @@ final class LibraryViewModel {
         computeGroups()
     }
 
+    /// Reorder manual groups
+    func reorderGroups(_ orderedIds: [UUID]) async {
+        guard let groupingService else { return }
+        await groupingService.updateSortOrders(orderedIds)
+        await loadManualGroups()
+        computeGroups()
+    }
+
+    /// Remove files from a manual group
+    func removeFilesFromGroup(_ groupId: UUID, filePaths: [String]) async {
+        guard let groupingService else { return }
+        await groupingService.removeFromGroup(groupId, filePaths: filePaths)
+        await loadManualGroups()
+        computeGroups()
+    }
+
     // MARK: - Selection Methods
 
     func toggleSelection() {

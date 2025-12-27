@@ -11,6 +11,7 @@ struct LibraryView: View {
     @State private var shouldPerformDelete = false
     @State private var showCreateGroupSheet = false
     @State private var newGroupName = ""
+    @State private var showGroupManagement = false
 
     /// Library display settings
     private var librarySettings = LibrarySettings.shared
@@ -90,6 +91,9 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $showCreateGroupSheet) {
                 createGroupSheet
+            }
+            .sheet(isPresented: $showGroupManagement) {
+                GroupManagementView(viewModel: viewModel)
             }
         }
         .task {
@@ -579,6 +583,15 @@ struct LibraryView: View {
                             librarySettings.groupingEnabled ? "Disable Grouping" : "Group by Series",
                             systemImage: librarySettings.groupingEnabled ? "rectangle.grid.1x2" : "square.stack.3d.up"
                         )
+                    }
+
+                    // Manage collections button
+                    if !viewModel.manualGroups.isEmpty {
+                        Button {
+                            showGroupManagement = true
+                        } label: {
+                            Label("Manage Collections", systemImage: "folder.badge.gearshape")
+                        }
                     }
 
                     Divider()
