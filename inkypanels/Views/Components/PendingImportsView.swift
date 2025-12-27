@@ -4,6 +4,8 @@ import SwiftUI
 struct PendingImportsView: View {
     let files: [ComicFile]
     let isImporting: Bool
+    let importProgress: Int
+    let importTotal: Int
     let onImportAll: () -> Void
     let onDismiss: () -> Void
 
@@ -12,11 +14,15 @@ struct PendingImportsView: View {
     init(
         files: [ComicFile],
         isImporting: Bool,
+        importProgress: Int = 0,
+        importTotal: Int = 0,
         onImportAll: @escaping () -> Void,
         onDismiss: @escaping () -> Void
     ) {
         self.files = files
         self.isImporting = isImporting
+        self.importProgress = importProgress
+        self.importTotal = importTotal
         self.onImportAll = onImportAll
         self.onDismiss = onDismiss
         self._selectedFiles = State(initialValue: Set(files.map { $0.id }))
@@ -55,13 +61,27 @@ struct PendingImportsView: View {
         VStack(spacing: 20) {
             Spacer()
 
-            ProgressView()
-                .scaleEffect(1.5)
+            if importTotal > 0 {
+                ProgressView(value: Double(importProgress), total: Double(importTotal))
+                    .progressViewStyle(.linear)
+                    .frame(width: 200)
+            } else {
+                ProgressView()
+                    .scaleEffect(1.5)
+            }
 
-            Text("Importing files...")
+            Text(importProgressText)
                 .font(.headline)
 
             Spacer()
+        }
+    }
+
+    private var importProgressText: String {
+        if importTotal > 0 {
+            return "Importing \(importProgress) of \(importTotal) files..."
+        } else {
+            return "Importing files..."
         }
     }
 
@@ -91,7 +111,7 @@ struct PendingImportsView: View {
 
             // Summary footer
             HStack {
-                Text("\(files.count) file\(files.count == 1 ? "" : "s") ready to import")
+                Text(importSummaryText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -104,6 +124,29 @@ struct PendingImportsView: View {
             .padding()
             .background(Color(.secondarySystemBackground))
         }
+    }
+
+    /// Summary text showing total files including those in folders
+    private var importSummaryText: String {
+        let folders = files.filter { $0.fileType == .folder }
+        let individualFiles = files.filter { $0.fileType != .folder }
+        let containedFileCount = folders.compactMap(\.containedFileCount).reduce(0, +)
+        let totalFileCount = individualFiles.count + containedFileCount
+
+        if folders.isEmpty {
+            return "\(totalFileCount) file\(totalFileCount == 1 ? "" : "s") ready to import"
+        } else {
+            let folderText = folders.count == 1 ? "1 folder" : "\(folders.count) folders"
+            return "\(folderText) with \(totalFileCount) file\(totalFileCount == 1 ? "" : "s") ready to import"
+        }
+    }
+
+    /// Total count of all files including those in folders
+    private var totalFileCount: Int {
+        let folders = files.filter { $0.fileType == .folder }
+        let individualFiles = files.filter { $0.fileType != .folder }
+        let containedFileCount = folders.compactMap(\.containedFileCount).reduce(0, +)
+        return individualFiles.count + containedFileCount
     }
 
     private var formattedTotalSize: String {

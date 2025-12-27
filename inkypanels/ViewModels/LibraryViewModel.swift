@@ -32,6 +32,12 @@ final class LibraryViewModel {
     /// Number of files successfully imported in the last batch
     var lastImportCount: Int = 0
 
+    /// Current import progress (1-based index of file being imported)
+    var importProgress: Int = 0
+
+    /// Total number of files to import (including files in folders)
+    var importTotal: Int = 0
+
     // MARK: - Sort Order
 
     enum SortOrder: String, CaseIterable {
@@ -222,14 +228,28 @@ final class LibraryViewModel {
     /// Import all pending files from Documents root into the library
     func importAllPendingFiles() async {
         isImporting = true
+        importProgress = 0
+        importTotal = calculateTotalFileCount(pendingImports)
         var successCount = 0
 
         for file in pendingImports {
             do {
                 _ = try await fileService.importFileToLibrary(from: file.url)
                 successCount += 1
+                // Update progress: folders count as their contained file count, individual files count as 1
+                if file.fileType == .folder {
+                    importProgress += file.containedFileCount ?? 1
+                } else {
+                    importProgress += 1
+                }
             } catch {
                 // Continue importing others even if one fails
+                // Still update progress for failed items
+                if file.fileType == .folder {
+                    importProgress += file.containedFileCount ?? 1
+                } else {
+                    importProgress += 1
+                }
                 continue
             }
         }
@@ -237,11 +257,26 @@ final class LibraryViewModel {
         lastImportCount = successCount
         pendingImports = []
         isImporting = false
+        importProgress = 0
+        importTotal = 0
 
         // Refresh the library if we're at the root
         if !canNavigateUp() {
             await loadFiles()
         }
+    }
+
+    /// Calculate total file count including files inside folders
+    private func calculateTotalFileCount(_ files: [ComicFile]) -> Int {
+        var total = 0
+        for file in files {
+            if file.fileType == .folder {
+                total += file.containedFileCount ?? 1
+            } else {
+                total += 1
+            }
+        }
+        return total
     }
 
     /// Import selected pending files
