@@ -78,6 +78,8 @@
 		FBE83B9910846319F57152BA /* ProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F369128B4CC3614B79EC19EC /* ProgressService.swift */; };
 		FC8ED057B1950D0FD0397C7F /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD0128F7C5BF2621CD78C2A /* FileRowView.swift */; };
 		FF825A5FE17D3FC4C39E8204 /* ComicFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D469F861C024F8686800BC4 /* ComicFile.swift */; };
+		LIBSET001B1950D0FD0397C7F /* LibrarySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = LIBSET0017C5BF2621CD78C2A /* LibrarySettings.swift */; };
+		FILTIL001B1950D0FD0397C7F /* FileTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FILTIL0017C5BF2621CD78C2A /* FileTileView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,6 +165,8 @@
 		F369128B4CC3614B79EC19EC /* ProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressService.swift; sourceTree = "<group>"; };
 		F468A25B4C2743880AAD1F31 /* VaultService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultService.swift; sourceTree = "<group>"; };
 		F5A49E12FB8F74E1C3B96D8C /* FavouriteRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavouriteRecord.swift; sourceTree = "<group>"; };
+		LIBSET0017C5BF2621CD78C2A /* LibrarySettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySettings.swift; sourceTree = "<group>"; };
+		FILTIL0017C5BF2621CD78C2A /* FileTileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTileView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -228,6 +232,7 @@
 			isa = PBXGroup;
 			children = (
 				CCD0128F7C5BF2621CD78C2A /* FileRowView.swift */,
+				FILTIL0017C5BF2621CD78C2A /* FileTileView.swift */,
 				87DA61C074557FA4521010FE /* LibraryView.swift */,
 			);
 			path = Library;
@@ -341,6 +346,7 @@
 			isa = PBXGroup;
 			children = (
 				A32B4C4D4CAE4992BA306DFF /* ReaderSettings.swift */,
+				LIBSET0017C5BF2621CD78C2A /* LibrarySettings.swift */,
 				EB30EE07ED1183CB16974C12 /* ArchiveEntry.swift */,
 				1D469F861C024F8686800BC4 /* ComicFile.swift */,
 				8F456B7CAAF50671D7DB835B /* ComicPage.swift */,
@@ -591,6 +597,8 @@
 				37983244A6C9B84B49038DEE /* FavouriteRecord.swift in Sources */,
 				D14BC4462EE6B3C754B42C20 /* FavouriteService.swift in Sources */,
 				FC8ED057B1950D0FD0397C7F /* FileRowView.swift in Sources */,
+				FILTIL001B1950D0FD0397C7F /* FileTileView.swift in Sources */,
+				LIBSET001B1950D0FD0397C7F /* LibrarySettings.swift in Sources */,
 				83FD57E74728052FD740E33F /* FileService.swift in Sources */,
 				DE5C36F5BDD947DEBD9ABD84 /* FileServiceProtocol.swift in Sources */,
 				3C713AD1C98C30234C7EDBC4 /* FileSystemError.swift in Sources */,

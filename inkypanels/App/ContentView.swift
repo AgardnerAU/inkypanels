@@ -347,51 +347,10 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Toggle("Auto-hide Sidebar", isOn: $autoHideSidebar)
-                } header: {
-                    Text("Sidebar")
-                } footer: {
-                    Text("When enabled, the sidebar hides automatically when reading a file and reappears when you return to the library.")
-                }
-
-                Section {
-                    Toggle("Show Recent Files Tab", isOn: $showRecentFiles)
-                    Toggle("Hide Vault Files from Recent", isOn: $hideVaultFromRecent)
-                    Toggle("Clear Recent Files on Exit", isOn: $clearRecentOnExit)
-                } header: {
-                    Text("Recent Files")
-                } footer: {
-                    Text("When 'Clear on Exit' is enabled, your reading history will be automatically cleared when leaving the app.")
-                }
-
-                Section("About") {
-                    LabeledContent("Version", value: Constants.App.version)
-
-                    // App name with secret triple-tap to reveal hidden vault
-                    HStack {
-                        Text("App")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(Constants.App.name)
-                            .foregroundStyle(.secondary)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if hideVaultFromSidebar {
-                            tapCount += 1
-                            if tapCount >= 3 {
-                                onRevealVault?()
-                                showVaultRevealedMessage = true
-                                tapCount = 0
-                            }
-                            // Reset tap count after 1 second of no taps
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                                tapCount = 0
-                            }
-                        }
-                    }
-                }
+                LibrarySettingsSection()
+                sidebarSection
+                recentFilesSection
+                aboutSection
             }
             .navigationTitle("Settings")
             .alert("Vault Revealed", isPresented: $showVaultRevealedMessage) {
@@ -400,6 +359,108 @@ struct SettingsView: View {
                 Text("The Vault is now visible in the sidebar.")
             }
         }
+    }
+
+    private var sidebarSection: some View {
+        Section {
+            Toggle("Auto-hide Sidebar", isOn: $autoHideSidebar)
+        } header: {
+            Text("Sidebar")
+        } footer: {
+            Text("When enabled, the sidebar hides automatically when reading a file and reappears when you return to the library.")
+        }
+    }
+
+    private var recentFilesSection: some View {
+        Section {
+            Toggle("Show Recent Files Tab", isOn: $showRecentFiles)
+            Toggle("Hide Vault Files from Recent", isOn: $hideVaultFromRecent)
+            Toggle("Clear Recent Files on Exit", isOn: $clearRecentOnExit)
+        } header: {
+            Text("Recent Files")
+        } footer: {
+            Text("When 'Clear on Exit' is enabled, your reading history will be automatically cleared when leaving the app.")
+        }
+    }
+
+    private var aboutSection: some View {
+        Section("About") {
+            LabeledContent("Version", value: Constants.App.version)
+            appNameRow
+        }
+    }
+
+    private var appNameRow: some View {
+        HStack {
+            Text("App")
+                .foregroundStyle(.primary)
+            Spacer()
+            Text(Constants.App.name)
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if hideVaultFromSidebar {
+                tapCount += 1
+                if tapCount >= 3 {
+                    onRevealVault?()
+                    showVaultRevealedMessage = true
+                    tapCount = 0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    tapCount = 0
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Library Settings Section
+
+private struct LibrarySettingsSection: View {
+    private var librarySettings = LibrarySettings.shared
+
+    var body: some View {
+        Section {
+            viewModePicker
+            tileSizePicker
+        } header: {
+            Text("Library")
+        } footer: {
+            Text("Choose how comics are displayed in the library. Tile size only applies to grid view.")
+        }
+    }
+
+    private var viewModePicker: some View {
+        Picker("View Mode", selection: viewModeBinding) {
+            ForEach(LibraryViewMode.allCases) { mode in
+                Label(mode.rawValue, systemImage: mode.icon)
+                    .tag(mode)
+            }
+        }
+    }
+
+    private var tileSizePicker: some View {
+        Picker("Tile Size", selection: tileSizeBinding) {
+            ForEach(TileSize.allCases) { size in
+                Text(size.rawValue).tag(size)
+            }
+        }
+        .disabled(librarySettings.viewMode != .grid)
+    }
+
+    private var viewModeBinding: Binding<LibraryViewMode> {
+        Binding(
+            get: { librarySettings.viewMode },
+            set: { librarySettings.viewMode = $0 }
+        )
+    }
+
+    private var tileSizeBinding: Binding<TileSize> {
+        Binding(
+            get: { librarySettings.tileSize },
+            set: { librarySettings.tileSize = $0 }
+        )
     }
 }
 

@@ -10,6 +10,9 @@ struct LibraryView: View {
     @State private var showPendingImports = false
     @State private var shouldPerformDelete = false
 
+    /// Library display settings
+    private var librarySettings = LibrarySettings.shared
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             Group {
@@ -30,7 +33,11 @@ struct LibraryView: View {
                         )
                     }
                 } else {
-                    fileList
+                    if librarySettings.viewMode == .grid {
+                        fileGrid
+                    } else {
+                        fileList
+                    }
                 }
             }
             .navigationTitle(navigationTitle)
@@ -206,6 +213,133 @@ struct LibraryView: View {
         .listStyle(.plain)
     }
 
+    private var fileGrid: some View {
+        ScrollView {
+            if viewModel.hasPendingImports && !viewModel.canNavigateUp() {
+                pendingImportsBannerGrid
+                    .padding(.horizontal)
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: librarySettings.tileSize.minColumnWidth))],
+                spacing: 16
+            ) {
+                ForEach(viewModel.files) { file in
+                    if viewModel.isSelecting {
+                        selectableTile(for: file)
+                    } else if file.fileType == .folder {
+                        Button {
+                            viewModel.navigateToFolder(file)
+                        } label: {
+                            FileTileView(
+                                file: file,
+                                tileSize: librarySettings.tileSize,
+                                isFavourite: viewModel.isFavourite(file)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu { contextMenuActions(for: file) }
+                    } else {
+                        NavigationLink(value: file) {
+                            FileTileView(
+                                file: file,
+                                tileSize: librarySettings.tileSize,
+                                isFavourite: viewModel.isFavourite(file)
+                            )
+                        }
+                        .contextMenu { contextMenuActions(for: file) }
+                    }
+                }
+            }
+            .padding()
+        }
+        .refreshable {
+            await viewModel.refresh()
+            await viewModel.checkForPendingImports()
+        }
+    }
+
+    private func selectableTile(for file: ComicFile) -> some View {
+        Button {
+            viewModel.toggleFileSelection(file)
+        } label: {
+            ZStack(alignment: .topLeading) {
+                FileTileView(
+                    file: file,
+                    tileSize: librarySettings.tileSize,
+                    isFavourite: viewModel.isFavourite(file)
+                )
+
+                Image(systemName: viewModel.selectedFiles.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(viewModel.selectedFiles.contains(file.id) ? .blue : .white)
+                    .font(.title2)
+                    .shadow(radius: 2)
+                    .padding(8)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func contextMenuActions(for file: ComicFile) -> some View {
+        Button {
+            Task { await viewModel.toggleFavourite(file) }
+        } label: {
+            Label(
+                viewModel.isFavourite(file) ? "Remove from Favourites" : "Add to Favourites",
+                systemImage: viewModel.isFavourite(file) ? "star.slash" : "star.fill"
+            )
+        }
+
+        Button {
+            Task { await viewModel.moveToVault(file) }
+        } label: {
+            Label("Move to Vault", systemImage: "lock.fill")
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            Task { try? await viewModel.deleteFile(file) }
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+    }
+
+    private var pendingImportsBannerGrid: some View {
+        Button {
+            showPendingImports = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.down.on.square.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pendingImportsBannerTitle)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+
+                    Text("Transferred via Finder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(10)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 8)
+    }
+
     private func favouriteSwipeAction(for file: ComicFile) -> some View {
         Button {
             Task { await viewModel.toggleFavourite(file) }
@@ -284,6 +418,18 @@ struct LibraryView: View {
                 }
                 .disabled(!viewModel.hasSelection)
             } else {
+                // View mode toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        librarySettings.viewMode = librarySettings.viewMode == .list ? .grid : .list
+                    }
+                } label: {
+                    Label(
+                        librarySettings.viewMode == .list ? "Grid View" : "List View",
+                        systemImage: librarySettings.viewMode == .list ? "square.grid.2x2" : "list.bullet"
+                    )
+                }
+
                 Button {
                     showImportPicker = true
                 } label: {
