@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,6 +13,7 @@ struct LibraryView: View {
     @State private var showCreateGroupSheet = false
     @State private var newGroupName = ""
     @State private var showGroupManagement = false
+    @State private var isDropTargeted = false
 
     /// Library display settings
     private var librarySettings = LibrarySettings.shared
@@ -105,6 +107,79 @@ struct LibraryView: View {
         .overlay {
             if viewModel.isMovingToVault {
                 vaultProgressOverlay
+            }
+        }
+        .overlay {
+            if isDropTargeted {
+                dropTargetOverlay
+            }
+        }
+        .onDrop(of: supportedDropTypes, isTargeted: $isDropTargeted) { providers in
+            handleDrop(providers: providers)
+            return true
+        }
+    }
+
+    // MARK: - Drag and Drop
+
+    /// Supported file types for drag and drop import
+    private var supportedDropTypes: [UTType] {
+        [.cbz, .cbr, .cb7, .pdf, .zip, .rar, .sevenZip]
+    }
+
+    private var dropTargetOverlay: some View {
+        ZStack {
+            Color.blue.opacity(0.2)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 60))
+                    .foregroundStyle(.blue)
+
+                Text("Drop to Import")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.blue)
+            }
+            .padding(40)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        }
+    }
+
+    private func handleDrop(providers: [NSItemProvider]) {
+        for provider in providers {
+            // Try each supported type
+            for type in supportedDropTypes {
+                if provider.hasItemConformingToTypeIdentifier(type.identifier) {
+                    provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
+                        guard let url = url else {
+                            if let error = error {
+                                print("Drop error: \(error.localizedDescription)")
+                            }
+                            return
+                        }
+
+                        // Copy file to a temporary location since the provided URL is temporary
+                        let tempURL = FileManager.default.temporaryDirectory
+                            .appendingPathComponent(url.lastPathComponent)
+
+                        do {
+                            // Remove existing temp file if present
+                            try? FileManager.default.removeItem(at: tempURL)
+                            try FileManager.default.copyItem(at: url, to: tempURL)
+
+                            Task { @MainActor in
+                                await viewModel.importFiles([tempURL])
+                                // Clean up temp file
+                                try? FileManager.default.removeItem(at: tempURL)
+                            }
+                        } catch {
+                            print("Failed to copy dropped file: \(error.localizedDescription)")
+                        }
+                    }
+                    break // Only load once per provider
+                }
             }
         }
     }
