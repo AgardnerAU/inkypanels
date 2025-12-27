@@ -15,11 +15,16 @@ final class ComicFileTypeTests: XCTestCase {
     }
 
     func testIsComicArchive() {
+        // Comic-specific extensions
         XCTAssertTrue(ComicFileType.cbz.isComicArchive)
         XCTAssertTrue(ComicFileType.cbr.isComicArchive)
         XCTAssertTrue(ComicFileType.cb7.isComicArchive)
         XCTAssertTrue(ComicFileType.cba.isComicArchive)
-        XCTAssertFalse(ComicFileType.zip.isComicArchive)
+        // Generic archives are treated as comic archives (same underlying format)
+        XCTAssertTrue(ComicFileType.zip.isComicArchive)
+        XCTAssertTrue(ComicFileType.rar.isComicArchive)
+        XCTAssertTrue(ComicFileType.sevenZip.isComicArchive)
+        // Non-archive formats
         XCTAssertFalse(ComicFileType.pdf.isComicArchive)
         XCTAssertFalse(ComicFileType.png.isComicArchive)
     }

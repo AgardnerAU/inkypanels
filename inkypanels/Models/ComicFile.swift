@@ -73,9 +73,10 @@ enum ComicFileType: String, CaseIterable, Sendable {
     case unknown
 
     /// Whether this type is a comic archive format
+    /// Includes .zip, .rar, .7z since they're functionally identical to .cbz, .cbr, .cb7
     var isComicArchive: Bool {
         switch self {
-        case .cbz, .cbr, .cb7, .cba:
+        case .cbz, .cbr, .cb7, .cba, .zip, .rar, .sevenZip:
             return true
         default:
             return false

@@ -9,7 +9,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
     let onCancel: () -> Void
 
     init(
-        contentTypes: [UTType] = [.cbz, .cbr, .pdf, .zip],
+        contentTypes: [UTType] = [.cbz, .cbr, .cb7, .pdf, .zip, .rar, .sevenZip],
         allowsMultipleSelection: Bool = true,
         onPick: @escaping ([URL]) -> Void,
         onCancel: @escaping () -> Void = {}
@@ -58,4 +58,6 @@ extension UTType {
     static let cbz = UTType(filenameExtension: "cbz") ?? .zip
     static let cbr = UTType(filenameExtension: "cbr") ?? .data
     static let cb7 = UTType(filenameExtension: "cb7") ?? .data
+    static let rar = UTType(filenameExtension: "rar") ?? .data
+    static let sevenZip = UTType(filenameExtension: "7z") ?? .data
 }
