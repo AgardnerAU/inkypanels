@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var navigationPath = NavigationPath()
     @State private var showDeleteConfirmation = false
     @State private var showImportPicker = false
+    @State private var showPendingImports = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -18,11 +19,15 @@ struct LibraryView: View {
                         Task { await viewModel.loadFiles() }
                     }
                 } else if viewModel.files.isEmpty {
-                    ContentUnavailableView(
-                        "No Comics",
-                        systemImage: "book.closed",
-                        description: Text("Add comics to the Comics folder using the Files app")
-                    )
+                    if viewModel.hasPendingImports {
+                        emptyStateWithPendingImports
+                    } else {
+                        ContentUnavailableView(
+                            "No Comics",
+                            systemImage: "book.closed",
+                            description: Text("Add comics to the Comics folder using the Files app")
+                        )
+                    }
                 } else {
                     fileList
                 }
@@ -39,6 +44,7 @@ struct LibraryView: View {
             }
             .refreshable {
                 await viewModel.refresh()
+                await viewModel.checkForPendingImports()
             }
             .confirmationDialog(
                 "Delete \(viewModel.selectedCount) item\(viewModel.selectedCount == 1 ? "" : "s")?",
@@ -53,17 +59,57 @@ struct LibraryView: View {
             .sheet(isPresented: $showImportPicker) {
                 importPickerSheet
             }
+            .sheet(isPresented: $showPendingImports) {
+                pendingImportsSheet
+            }
         }
         .task {
             viewModel.configureFavouriteService(modelContext: modelContext)
             await viewModel.loadFiles()
+            await viewModel.checkForPendingImports()
         }
     }
 
     // MARK: - Subviews
 
+    private var emptyStateWithPendingImports: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Image(systemName: "square.and.arrow.down.on.square.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.blue)
+
+            VStack(spacing: 8) {
+                Text("Files Ready to Import")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("\(viewModel.pendingImports.count) file\(viewModel.pendingImports.count == 1 ? " was" : "s were") transferred via Finder")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button {
+                showPendingImports = true
+            } label: {
+                Text("Import Files")
+                    .fontWeight(.semibold)
+                    .frame(minWidth: 200)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Spacer()
+        }
+        .padding()
+    }
+
     private var fileList: some View {
         List {
+            if viewModel.hasPendingImports && !viewModel.canNavigateUp() {
+                pendingImportsBanner
+            }
+
             ForEach(viewModel.files) { file in
                 if viewModel.isSelecting {
                     selectableRow(for: file)
@@ -208,6 +254,55 @@ struct LibraryView: View {
         } onCancel: {
             showImportPicker = false
         }
+    }
+
+    // MARK: - Pending Imports
+
+    private var pendingImportsBanner: some View {
+        Button {
+            showPendingImports = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.down.on.square.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(viewModel.pendingImports.count) file\(viewModel.pendingImports.count == 1 ? "" : "s") ready to import")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+
+                    Text("Transferred via Finder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 8)
+        }
+        .listRowBackground(Color.blue.opacity(0.1))
+    }
+
+    private var pendingImportsSheet: some View {
+        PendingImportsView(
+            files: viewModel.pendingImports,
+            isImporting: viewModel.isImporting,
+            onImportAll: {
+                Task {
+                    await viewModel.importAllPendingFiles()
+                    showPendingImports = false
+                }
+            },
+            onDismiss: {
+                showPendingImports = false
+            }
+        )
     }
 
     // MARK: - Computed Properties

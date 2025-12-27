@@ -23,6 +23,15 @@ final class LibraryViewModel {
     /// Set of favourite file paths
     var favouritePaths: Set<String> = []
 
+    /// Files available to import from Documents root (transferred via Finder)
+    var pendingImports: [ComicFile] = []
+
+    /// Whether we're currently importing files
+    var isImporting: Bool = false
+
+    /// Number of files successfully imported in the last batch
+    var lastImportCount: Int = 0
+
     // MARK: - Sort Order
 
     enum SortOrder: String, CaseIterable {
@@ -183,6 +192,77 @@ final class LibraryViewModel {
 
         // Refresh the file list
         await loadFiles()
+    }
+
+    // MARK: - Pending Imports (Finder Transfer)
+
+    /// Check for files in Documents root that can be imported
+    func checkForPendingImports() async {
+        do {
+            pendingImports = try await fileService.listImportableFiles()
+        } catch {
+            pendingImports = []
+        }
+    }
+
+    /// Whether there are files waiting to be imported
+    var hasPendingImports: Bool {
+        !pendingImports.isEmpty
+    }
+
+    /// Import all pending files from Documents root into the library
+    func importAllPendingFiles() async {
+        isImporting = true
+        var successCount = 0
+
+        for file in pendingImports {
+            do {
+                _ = try await fileService.importFileToLibrary(from: file.url)
+                successCount += 1
+            } catch {
+                // Continue importing others even if one fails
+                continue
+            }
+        }
+
+        lastImportCount = successCount
+        pendingImports = []
+        isImporting = false
+
+        // Refresh the library if we're at the root
+        if !canNavigateUp() {
+            await loadFiles()
+        }
+    }
+
+    /// Import selected pending files
+    func importSelectedPendingFiles(_ files: [ComicFile]) async {
+        isImporting = true
+        var successCount = 0
+
+        for file in files {
+            do {
+                _ = try await fileService.importFileToLibrary(from: file.url)
+                successCount += 1
+                // Remove from pending list
+                pendingImports.removeAll { $0.id == file.id }
+            } catch {
+                continue
+            }
+        }
+
+        lastImportCount = successCount
+        isImporting = false
+
+        // Refresh the library if we're at the root
+        if !canNavigateUp() {
+            await loadFiles()
+        }
+    }
+
+    /// Skip/dismiss pending imports without importing
+    func dismissPendingImports() {
+        pendingImports = []
     }
 
     func setSortOrder(_ order: SortOrder) {

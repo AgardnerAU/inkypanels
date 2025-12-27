@@ -62,6 +62,15 @@ struct ReaderControlsView: View {
             displayOptionsMenu
         }
         .padding()
+        .safeAreaPadding(.top)
+        .background(
+            LinearGradient(
+                colors: [.black.opacity(0.5), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
+        )
     }
 
     private var displayOptionsMenu: some View {

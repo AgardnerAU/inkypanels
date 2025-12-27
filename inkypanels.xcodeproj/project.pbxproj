@@ -74,6 +74,7 @@
 		F22DF46659B89DBB55EC7674 /* PageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0995882190206838652F5231 /* PageView.swift */; };
 		F2E38FE56A4789B1D0C7478B /* ReaderControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 223D631D4D727AE7ED3330E1 /* ReaderControlsView.swift */; };
 		F47FD15BACF34383815126C5 /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FED6ABD2CBF4816B2718142 /* DocumentPicker.swift */; };
+		F47FD15BACF34383815126C6 /* PendingImportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FED6ABD2CBF4816B2718143 /* PendingImportsView.swift */; };
 		FBE83B9910846319F57152BA /* ProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F369128B4CC3614B79EC19EC /* ProgressService.swift */; };
 		FC8ED057B1950D0FD0397C7F /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCD0128F7C5BF2621CD78C2A /* FileRowView.swift */; };
 		FF825A5FE17D3FC4C39E8204 /* ComicFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D469F861C024F8686800BC4 /* ComicFile.swift */; };
@@ -96,6 +97,7 @@
 		0A0C22CEA2399C9DA3859EDD /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		0CDFFEAF3722B5ED26BB5A16 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		0FED6ABD2CBF4816B2718142 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
+		0FED6ABD2CBF4816B2718143 /* PendingImportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportsView.swift; sourceTree = "<group>"; };
 		10CBB503D268FFA9E87C4672 /* VaultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultView.swift; sourceTree = "<group>"; };
 		17E2D66CD4AB58503E549813 /* ReaderError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderError.swift; sourceTree = "<group>"; };
 		1AD0A364C856B61E8980E7C5 /* EncryptionServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionServiceProtocol.swift; sourceTree = "<group>"; };
@@ -399,6 +401,7 @@
 			children = (
 				0A0C22CEA2399C9DA3859EDD /* ErrorView.swift */,
 				C01AF3CD145E7EDB85240BB8 /* LoadingView.swift */,
+				0FED6ABD2CBF4816B2718143 /* PendingImportsView.swift */,
 				C7BEE99A7B81F336BB4CD440 /* ThumbnailView.swift */,
 				C40BC9581265E10516ADBAB7 /* ZoomableImageView.swift */,
 				0FED6ABD2CBF4816B2718142 /* DocumentPicker.swift */,
@@ -605,6 +608,7 @@
 				5F33A2242E5B663AF3958F79 /* PDFReader.swift in Sources */,
 				204E011B8CB4925C3E028ED6 /* PageSliderView.swift in Sources */,
 				F22DF46659B89DBB55EC7674 /* PageView.swift in Sources */,
+				F47FD15BACF34383815126C6 /* PendingImportsView.swift in Sources */,
 				465603E8F886B8576FA83A22 /* ProgressRecord.swift in Sources */,
 				FBE83B9910846319F57152BA /* ProgressService.swift in Sources */,
 				4E707A18E58327932EB8C627 /* ProgressServiceProtocol.swift in Sources */,

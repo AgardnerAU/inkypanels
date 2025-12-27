@@ -91,6 +91,64 @@ actor FileService: FileServiceProtocol {
         }
     }
 
+    /// Lists comic files in the Documents root that can be imported into the Comics folder.
+    /// Files transferred via Finder appear here and need to be moved to the Comics directory.
+    func listImportableFiles() async throws -> [ComicFile] {
+        let contents = try fileManager.contentsOfDirectory(
+            at: documentsDirectory,
+            includingPropertiesForKeys: [
+                .fileSizeKey,
+                .contentModificationDateKey,
+                .isDirectoryKey
+            ],
+            options: [.skipsHiddenFiles]
+        )
+
+        var importableFiles: [ComicFile] = []
+
+        for url in contents {
+            // Skip the Comics folder and other app directories
+            let filename = url.lastPathComponent
+            if filename == Constants.Paths.comicsFolder ||
+               filename == "Thumbnails" ||
+               filename.hasPrefix(".") {
+                continue
+            }
+
+            do {
+                let comicFile = try await createComicFile(from: url)
+                // Only include supported file types (not unknown)
+                if comicFile.fileType != .unknown {
+                    importableFiles.append(comicFile)
+                }
+            } catch {
+                // Skip files that can't be read
+                continue
+            }
+        }
+
+        return importableFiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Moves a file from Documents root into the Comics directory
+    func importFileToLibrary(from source: URL) async throws -> URL {
+        let destination = comicsDirectory.appendingPathComponent(source.lastPathComponent)
+        var finalDestination = destination
+
+        // Handle duplicate filenames
+        if fileManager.fileExists(atPath: finalDestination.path) {
+            finalDestination = generateUniqueFilename(for: destination)
+        }
+
+        do {
+            // Move instead of copy since the file is already in our sandbox
+            try fileManager.moveItem(at: source, to: finalDestination)
+            return finalDestination
+        } catch {
+            throw InkyPanelsError.fileSystem(.moveFailed(underlying: error))
+        }
+    }
+
     func detectFileType(at url: URL) async throws -> ComicFileType {
         // First, try to detect by magic bytes
         if let data = try? Data(contentsOf: url, options: .mappedIfSafe) {
