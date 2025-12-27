@@ -155,15 +155,14 @@ actor FileService: FileServiceProtocol {
         }
 
         let allURLs = enumerator.allObjects.compactMap { $0 as? URL }
-        let archiveExtensions = Set(["cbz", "cbr", "cb7", "pdf", "zip", "rar", "7z"])
 
         return allURLs.filter { url in
             let resourceValues = try? url.resourceValues(forKeys: [.isRegularFileKey])
             guard resourceValues?.isRegularFile == true else { return false }
 
             let ext = url.pathExtension.lowercased()
-            // Include both archive formats and image files (for image folders)
-            return archiveExtensions.contains(ext) || ImageReader.supportedExtensions.contains(ext)
+            // Include all supported file types (comics, archives, images, PDFs)
+            return SupportedFormat.all.contains(ext)
         }
     }
 
