@@ -60,7 +60,15 @@ struct InkyPanelsApp: App {
             let fileSize = (attributes[.size] as? Int64) ?? 0
             let modifiedDate = (attributes[.modificationDate] as? Date) ?? Date()
 
-            let fileType = ComicFileType(from: importedURL.pathExtension)
+            // Check if it's a directory to set correct file type
+            var isDirectory: ObjCBool = false
+            let fileType: ComicFileType
+            if fileManager.fileExists(atPath: importedURL.path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                fileType = .folder
+            } else {
+                fileType = ComicFileType(from: importedURL.pathExtension)
+            }
 
             let comic = ComicFile(
                 url: importedURL,
@@ -99,7 +107,13 @@ struct InkyPanelsApp: App {
         let ext = sourceURL.pathExtension
 
         while fileManager.fileExists(atPath: destinationURL.path) {
-            let newName = "\(baseName) (\(counter)).\(ext)"
+            let newName: String
+            if ext.isEmpty {
+                // Folders don't have extensions - avoid trailing dot
+                newName = "\(baseName) (\(counter))"
+            } else {
+                newName = "\(baseName) (\(counter)).\(ext)"
+            }
             destinationURL = comicsURL.appendingPathComponent(newName)
             counter += 1
         }

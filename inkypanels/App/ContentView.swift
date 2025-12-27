@@ -104,20 +104,21 @@ struct ContentView: View {
                 }
             }
         }
-        .onAppear {
-            // Respect auto-hide setting on launch
-            columnVisibility = autoHideSidebar ? .detailOnly : .all
-        }
-        .onChange(of: selectedTab) { _, _ in
-            // Auto-hide sidebar after tab selection when enabled
+        .onChange(of: appState?.isViewingFile) { _, isViewing in
+            // Auto-hide sidebar when opening a file, show when closing
             if autoHideSidebar {
-                columnVisibility = .detailOnly
+                columnVisibility = (isViewing == true) ? .detailOnly : .all
             }
         }
         .onChange(of: autoHideSidebar) { _, newValue in
-            // When auto-hide is disabled, show the sidebar
-            // When enabled, hide it immediately
-            columnVisibility = newValue ? .detailOnly : .all
+            // When auto-hide is toggled, update visibility based on current state
+            if newValue {
+                // Only hide if currently viewing a file
+                columnVisibility = (appState?.isViewingFile == true) ? .detailOnly : .all
+            } else {
+                // When disabled, always show sidebar
+                columnVisibility = .all
+            }
         }
     }
 }
@@ -361,7 +362,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Sidebar")
                 } footer: {
-                    Text("When disabled, the sidebar remains visible. When enabled, it can be manually toggled.")
+                    Text("When enabled, the sidebar hides automatically when reading a file and reappears when you return to the library.")
                 }
 
                 Section {

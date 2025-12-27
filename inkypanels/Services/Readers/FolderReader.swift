@@ -31,17 +31,19 @@ actor FolderReader: ArchiveReader {
 
         let fileManager = FileManager.default
 
-        // Get all items in directory
-        let contents = try fileManager.contentsOfDirectory(
+        // Use enumerator for recursive traversal of all subdirectories
+        guard let enumerator = fileManager.enumerator(
             at: archiveURL,
             includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
             options: [.skipsHiddenFiles]
-        )
+        ) else {
+            throw InkyPanelsError.fileSystem(.fileNotFound(archiveURL))
+        }
 
         // Filter to image files only
         var entries: [ArchiveEntry] = []
 
-        for url in contents {
+        for case let url as URL in enumerator {
             // Skip directories
             let resourceValues = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
             guard resourceValues?.isRegularFile == true else { continue }
@@ -52,8 +54,14 @@ actor FolderReader: ArchiveReader {
 
             let fileSize = (resourceValues?.fileSize).map(UInt64.init) ?? 0
 
+            // Get relative path from archive root
+            let relativePath = url.path.replacingOccurrences(
+                of: archiveURL.path + "/",
+                with: ""
+            )
+
             entries.append(ArchiveEntry(
-                path: url.lastPathComponent,
+                path: relativePath,
                 uncompressedSize: fileSize,
                 index: 0  // Will be set after sorting
             ))
@@ -63,7 +71,7 @@ actor FolderReader: ArchiveReader {
             throw InkyPanelsError.archive(.emptyArchive)
         }
 
-        // Sort naturally by filename and assign indices
+        // Sort naturally by path and assign indices
         let sorted = entries
             .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
             .enumerated()

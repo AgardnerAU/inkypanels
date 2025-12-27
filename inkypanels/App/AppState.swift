@@ -27,6 +27,10 @@ final class AppState {
 
     /// Comic file to open immediately (from Files app "Open In", etc.)
     var fileToOpen: ComicFile?
+
+    /// Whether a file is currently being viewed in the reader
+    /// Used by ContentView for auto-hide sidebar behavior
+    var isViewingFile: Bool = false
 }
 
 /// Represents an active reading session

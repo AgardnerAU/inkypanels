@@ -5,6 +5,7 @@ struct ReaderView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppState.self) private var appState: AppState?
     @State private var viewModel: ReaderViewModel
     @State private var fitMode: FitMode = .fit
 
@@ -41,7 +42,11 @@ struct ReaderView: View {
             viewModel.configureProgressService(modelContext: modelContext)
             await viewModel.loadComic()
         }
+        .onAppear {
+            appState?.isViewingFile = true
+        }
         .onDisappear {
+            appState?.isViewingFile = false
             Task {
                 await viewModel.cleanup()
             }
