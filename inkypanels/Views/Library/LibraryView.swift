@@ -9,6 +9,8 @@ struct LibraryView: View {
     @State private var showImportPicker = false
     @State private var showPendingImports = false
     @State private var shouldPerformDelete = false
+    @State private var showCreateGroupSheet = false
+    @State private var newGroupName = ""
 
     /// Library display settings
     private var librarySettings = LibrarySettings.shared
@@ -33,10 +35,20 @@ struct LibraryView: View {
                         )
                     }
                 } else {
-                    if librarySettings.viewMode == .grid {
-                        fileGrid
+                    if librarySettings.groupingEnabled && !viewModel.displayGroups.isEmpty {
+                        // Grouped view
+                        if librarySettings.viewMode == .grid {
+                            groupedFileGrid
+                        } else {
+                            groupedFileList
+                        }
                     } else {
-                        fileList
+                        // Flat view
+                        if librarySettings.viewMode == .grid {
+                            fileGrid
+                        } else {
+                            fileList
+                        }
                     }
                 }
             }
@@ -76,9 +88,13 @@ struct LibraryView: View {
             .sheet(isPresented: $showPendingImports) {
                 pendingImportsSheet
             }
+            .sheet(isPresented: $showCreateGroupSheet) {
+                createGroupSheet
+            }
         }
         .task {
             viewModel.configureFavouriteService(modelContext: modelContext)
+            viewModel.configureGroupingService(modelContext: modelContext)
             await viewModel.loadFiles()
             await viewModel.checkForPendingImports()
         }
@@ -297,6 +313,62 @@ struct LibraryView: View {
         }
     }
 
+    private var groupedFileList: some View {
+        GroupedLibraryListView(
+            viewModel: viewModel,
+            onNavigateToFolder: { folder in
+                viewModel.navigateToFolder(folder)
+            },
+            onDeleteFile: { file in
+                try await viewModel.deleteFile(file)
+            },
+            contextMenuActions: { file in
+                AnyView(contextMenuActions(for: file))
+            },
+            onSaveAutoGroup: { group in
+                Task {
+                    _ = await viewModel.saveAutoGroupAsCollection(group)
+                }
+            },
+            onDeleteGroup: { groupId in
+                Task {
+                    await viewModel.deleteGroup(groupId)
+                }
+            }
+        )
+        .refreshable {
+            await viewModel.refresh()
+            await viewModel.checkForPendingImports()
+        }
+    }
+
+    private var groupedFileGrid: some View {
+        GroupedLibraryGridView(
+            viewModel: viewModel,
+            tileSize: librarySettings.tileSize,
+            onNavigateToFolder: { folder in
+                viewModel.navigateToFolder(folder)
+            },
+            contextMenuActions: { file in
+                AnyView(contextMenuActions(for: file))
+            },
+            onSaveAutoGroup: { group in
+                Task {
+                    _ = await viewModel.saveAutoGroupAsCollection(group)
+                }
+            },
+            onDeleteGroup: { groupId in
+                Task {
+                    await viewModel.deleteGroup(groupId)
+                }
+            }
+        )
+        .refreshable {
+            await viewModel.refresh()
+            await viewModel.checkForPendingImports()
+        }
+    }
+
     private func selectableTile(for file: ComicFile) -> some View {
         Button {
             viewModel.toggleFileSelection(file)
@@ -449,6 +521,13 @@ struct LibraryView: View {
                     Text(viewModel.selectedFiles.count == viewModel.files.count ? "Deselect All" : "Select All")
                 }
 
+                Button {
+                    showCreateGroupSheet = true
+                } label: {
+                    Label("Create Group", systemImage: "folder.badge.plus")
+                }
+                .disabled(!viewModel.hasSelection)
+
                 Button(role: .destructive) {
                     showDeleteConfirmation = true
                 } label: {
@@ -490,6 +569,21 @@ struct LibraryView: View {
                 }
 
                 Menu {
+                    // Grouping toggle
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            librarySettings.groupingEnabled.toggle()
+                        }
+                    } label: {
+                        Label(
+                            librarySettings.groupingEnabled ? "Disable Grouping" : "Group by Series",
+                            systemImage: librarySettings.groupingEnabled ? "rectangle.grid.1x2" : "square.stack.3d.up"
+                        )
+                    }
+
+                    Divider()
+
+                    // Sort options
                     Picker("Sort By", selection: Binding(
                         get: { viewModel.sortOrder },
                         set: { viewModel.setSortOrder($0) }
@@ -498,11 +592,65 @@ struct LibraryView: View {
                             Text(order.label).tag(order)
                         }
                     }
+
+                    // Group expand/collapse (only when grouping is enabled)
+                    if librarySettings.groupingEnabled && !viewModel.displayGroups.isEmpty {
+                        Divider()
+
+                        Button {
+                            viewModel.expandAllGroups()
+                        } label: {
+                            Label("Expand All Groups", systemImage: "chevron.down.circle")
+                        }
+
+                        Button {
+                            viewModel.collapseAllGroups()
+                        } label: {
+                            Label("Collapse All Groups", systemImage: "chevron.right.circle")
+                        }
+                    }
                 } label: {
-                    Label("Sort", systemImage: "arrow.up.arrow.down")
+                    Label("Options", systemImage: "ellipsis.circle")
                 }
             }
         }
+    }
+
+    // MARK: - Create Group Sheet
+
+    private var createGroupSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Group Name", text: $newGroupName)
+                } footer: {
+                    Text("Creating group with \(viewModel.selectedCount) item\(viewModel.selectedCount == 1 ? "" : "s")")
+                }
+            }
+            .navigationTitle("New Group")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showCreateGroupSheet = false
+                        newGroupName = ""
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        Task {
+                            let success = await viewModel.createGroupFromSelection(name: newGroupName)
+                            if success {
+                                showCreateGroupSheet = false
+                                newGroupName = ""
+                            }
+                        }
+                    }
+                    .disabled(newGroupName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.height(200)])
     }
 
     // MARK: - Import Picker

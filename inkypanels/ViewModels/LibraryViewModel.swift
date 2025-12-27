@@ -44,6 +44,17 @@ final class LibraryViewModel {
     /// Name of the file being moved to vault (for progress display)
     var vaultOperationFileName: String = ""
 
+    // MARK: - Grouping State
+
+    /// Display groups computed from files
+    var displayGroups: [DisplayGroup] = []
+
+    /// Set of expanded group IDs
+    var expandedGroups: Set<String> = []
+
+    /// Files that don't belong to any group
+    var ungroupedFiles: [ComicFile] = []
+
     // MARK: - Sort Order
 
     enum SortOrder: String, CaseIterable {
@@ -58,7 +69,11 @@ final class LibraryViewModel {
 
     private let fileService: FileService
     private var favouriteService: FavouriteService?
+    private var groupingService: GroupingService?
     private var vaultService: VaultService { VaultService.shared }
+
+    /// Manual groups loaded from storage
+    var manualGroups: [GroupRecord] = []
 
     // MARK: - Initialization
 
@@ -72,6 +87,11 @@ final class LibraryViewModel {
         self.favouriteService = FavouriteService(modelContext: modelContext)
     }
 
+    /// Configure grouping service (call from view with modelContext)
+    func configureGroupingService(modelContext: ModelContext) {
+        self.groupingService = GroupingService(modelContext: modelContext)
+    }
+
     // MARK: - Public Methods
 
     func loadFiles() async {
@@ -81,6 +101,10 @@ final class LibraryViewModel {
         do {
             let loadedFiles = try await fileService.listFiles(in: currentDirectory)
             files = sortFiles(loadedFiles)
+
+            // Load manual groups and compute all groups
+            await loadManualGroups()
+            computeGroups()
 
             // Load favourite status for all files
             await loadFavouriteStatus()
@@ -392,6 +416,154 @@ final class LibraryViewModel {
     func setSortOrder(_ order: SortOrder) {
         sortOrder = order
         files = sortFiles(files)
+        computeGroups()
+    }
+
+    // MARK: - Grouping Methods
+
+    /// Compute display groups from current files
+    func computeGroups() {
+        // Get files that are in manual groups
+        let manuallyGroupedPaths = Set(manualGroups.flatMap(\.memberPaths))
+
+        // Filter out manually grouped files for auto-detection
+        let filesForAutoGrouping = files.filter { !manuallyGroupedPaths.contains($0.url.path) }
+
+        // Compute auto-detected groups from non-manually-grouped files
+        let autoGroups = SeriesPatternExtractor.groupFiles(filesForAutoGrouping)
+
+        // Convert manual groups to DisplayGroups
+        let fileMap = Dictionary(uniqueKeysWithValues: files.map { ($0.url.path, $0) })
+        let manualDisplayGroups: [DisplayGroup] = manualGroups.compactMap { record in
+            let memberFiles = record.memberPaths.compactMap { fileMap[$0] }
+            guard !memberFiles.isEmpty else { return nil }
+
+            return DisplayGroup(
+                id: "manual-\(record.groupId.uuidString)",
+                name: record.displayName,
+                files: memberFiles,
+                isAutomatic: false,
+                pattern: nil
+            )
+        }
+
+        // Combine: manual groups first, then auto-detected groups
+        displayGroups = manualDisplayGroups + autoGroups
+
+        // Compute ungrouped files (not in any group)
+        let allGroupedFileIds = Set(displayGroups.flatMap { $0.files.map(\.id) })
+        ungroupedFiles = files.filter { !allGroupedFileIds.contains($0.id) }
+    }
+
+    /// Toggle whether a group is expanded
+    func toggleGroupExpanded(_ groupId: String) {
+        if expandedGroups.contains(groupId) {
+            expandedGroups.remove(groupId)
+        } else {
+            expandedGroups.insert(groupId)
+        }
+    }
+
+    /// Check if a group is expanded
+    func isGroupExpanded(_ groupId: String) -> Bool {
+        expandedGroups.contains(groupId)
+    }
+
+    /// Expand all groups
+    func expandAllGroups() {
+        expandedGroups = Set(displayGroups.map(\.id))
+    }
+
+    /// Collapse all groups
+    func collapseAllGroups() {
+        expandedGroups.removeAll()
+    }
+
+    // MARK: - Manual Group Operations
+
+    /// Load manual groups from storage
+    func loadManualGroups() async {
+        guard let groupingService else { return }
+        manualGroups = await groupingService.fetchAllGroups()
+    }
+
+    /// Create a new group from selected files
+    func createGroupFromSelection(name: String) async -> Bool {
+        guard let groupingService, !selectedFiles.isEmpty else { return false }
+
+        // Get file paths from selected files
+        let selectedFilePaths = files
+            .filter { selectedFiles.contains($0.id) }
+            .map { $0.url.path }
+
+        guard !selectedFilePaths.isEmpty else { return false }
+
+        // Create the group
+        let record = await groupingService.createGroup(name: name, memberPaths: selectedFilePaths)
+
+        if record != nil {
+            // Reload groups and recompute display
+            await loadManualGroups()
+            computeGroups()
+
+            // Exit selection mode
+            selectedFiles.removeAll()
+            isSelecting = false
+
+            return true
+        }
+
+        return false
+    }
+
+    /// Add selected files to an existing group
+    func addSelectionToGroup(_ groupId: UUID) async {
+        guard let groupingService, !selectedFiles.isEmpty else { return }
+
+        let selectedFilePaths = files
+            .filter { selectedFiles.contains($0.id) }
+            .map { $0.url.path }
+
+        await groupingService.addToGroup(groupId, filePaths: selectedFilePaths)
+        await loadManualGroups()
+        computeGroups()
+
+        selectedFiles.removeAll()
+        isSelecting = false
+    }
+
+    /// Delete a manual group
+    func deleteGroup(_ groupId: UUID) async {
+        guard let groupingService else { return }
+        await groupingService.deleteGroup(groupId)
+        await loadManualGroups()
+        computeGroups()
+    }
+
+    /// Save an auto-detected group as a manual collection
+    func saveAutoGroupAsCollection(_ group: DisplayGroup, withName name: String? = nil) async -> Bool {
+        guard let groupingService, group.isAutomatic else { return false }
+
+        let groupName = name ?? group.name
+        let filePaths = group.files.map { $0.url.path }
+
+        let record = await groupingService.createGroup(name: groupName, memberPaths: filePaths)
+
+        if record != nil {
+            await loadManualGroups()
+            computeGroups()
+            return true
+        }
+
+        return false
+    }
+
+    /// Rename a manual group
+    func renameGroup(_ groupId: UUID, to newName: String) async {
+        guard let groupingService else { return }
+        await groupingService.renameGroup(groupId, to: newName)
+        await loadManualGroups()
+        computeGroups()
     }
 
     // MARK: - Selection Methods

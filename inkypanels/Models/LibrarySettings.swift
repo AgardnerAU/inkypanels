@@ -71,6 +71,11 @@ final class LibrarySettings {
         didSet { saveBool(showFileSize, for: .showFileSize) }
     }
 
+    /// Whether to group files by series name
+    var groupingEnabled: Bool {
+        didSet { saveBool(groupingEnabled, for: .groupingEnabled) }
+    }
+
     // MARK: - Keys
 
     private enum Keys: String {
@@ -78,6 +83,7 @@ final class LibrarySettings {
         case tileSize = "library.tileSize"
         case showPageCount = "library.showPageCount"
         case showFileSize = "library.showFileSize"
+        case groupingEnabled = "library.groupingEnabled"
     }
 
     // MARK: - Init
@@ -113,6 +119,13 @@ final class LibrarySettings {
             self.showFileSize = defaults.bool(forKey: Keys.showFileSize.rawValue)
         } else {
             self.showFileSize = true
+        }
+
+        // Load grouping enabled (default: false)
+        if defaults.object(forKey: Keys.groupingEnabled.rawValue) != nil {
+            self.groupingEnabled = defaults.bool(forKey: Keys.groupingEnabled.rawValue)
+        } else {
+            self.groupingEnabled = false
         }
     }
 
