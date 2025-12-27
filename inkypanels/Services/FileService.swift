@@ -277,6 +277,46 @@ actor FileService: FileServiceProtocol {
         return newURL
     }
 
+    /// Lists comic files contained within a specific folder (non-recursive, just immediate children)
+    func listFilesInFolder(at url: URL) async throws -> [ComicFile] {
+        let contents = try fileManager.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: [
+                .fileSizeKey,
+                .contentModificationDateKey,
+                .isDirectoryKey
+            ],
+            options: [.skipsHiddenFiles]
+        )
+
+        var comicFiles: [ComicFile] = []
+
+        for fileURL in contents {
+            do {
+                let resourceValues = try fileURL.resourceValues(forKeys: [.isDirectoryKey])
+                let isDirectory = resourceValues.isDirectory ?? false
+
+                if isDirectory {
+                    // For subfolders, check if they contain comic files
+                    let nestedFiles = findComicFilesRecursively(in: fileURL)
+                    if !nestedFiles.isEmpty {
+                        let comicFile = try await createComicFile(from: fileURL, containedFileCount: nestedFiles.count)
+                        comicFiles.append(comicFile)
+                    }
+                } else {
+                    let comicFile = try await createComicFile(from: fileURL)
+                    if comicFile.fileType != .unknown {
+                        comicFiles.append(comicFile)
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+
+        return comicFiles.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     /// Calculates the total size of all files within a directory recursively
     private func calculateFolderSize(at url: URL) -> Int64 {
         guard let enumerator = fileManager.enumerator(

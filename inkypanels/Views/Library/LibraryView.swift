@@ -517,11 +517,24 @@ struct LibraryView: View {
             isImporting: viewModel.isImporting,
             importProgress: viewModel.importProgress,
             importTotal: viewModel.importTotal,
-            onImportAll: {
+            onImport: { selectedIds in
                 Task {
-                    await viewModel.importAllPendingFiles()
-                    showPendingImports = false
+                    await viewModel.importSelectedPendingFilesById(selectedIds)
+                    if viewModel.pendingImports.isEmpty {
+                        showPendingImports = false
+                    }
                 }
+            },
+            onDelete: { selectedIds in
+                Task {
+                    await viewModel.deletePendingFiles(selectedIds)
+                    if viewModel.pendingImports.isEmpty {
+                        showPendingImports = false
+                    }
+                }
+            },
+            onLoadFolderContents: { url in
+                await viewModel.listFilesInFolder(url)
             },
             onDismiss: {
                 showPendingImports = false

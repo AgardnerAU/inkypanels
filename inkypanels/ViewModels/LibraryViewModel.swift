@@ -309,6 +309,72 @@ final class LibraryViewModel {
         pendingImports = []
     }
 
+    /// Delete pending files that the user doesn't want to import
+    func deletePendingFiles(_ fileIds: Set<ComicFile.ID>) async {
+        let filesToDelete = pendingImports.filter { fileIds.contains($0.id) }
+
+        for file in filesToDelete {
+            do {
+                try await fileService.deleteFile(at: file.url)
+                pendingImports.removeAll { $0.id == file.id }
+            } catch {
+                // Continue deleting others even if one fails
+                continue
+            }
+        }
+    }
+
+    /// Import selected pending files by ID set
+    func importSelectedPendingFilesById(_ selectedIds: Set<ComicFile.ID>) async {
+        let filesToImport = pendingImports.filter { selectedIds.contains($0.id) }
+
+        isImporting = true
+        importProgress = 0
+        importTotal = calculateTotalFileCount(filesToImport)
+        var successCount = 0
+
+        for file in filesToImport {
+            do {
+                _ = try await fileService.importFileToLibrary(from: file.url)
+                successCount += 1
+                pendingImports.removeAll { $0.id == file.id }
+                // Update progress
+                if file.fileType == .folder {
+                    importProgress += file.containedFileCount ?? 1
+                } else {
+                    importProgress += 1
+                }
+            } catch {
+                // Still update progress for failed items
+                if file.fileType == .folder {
+                    importProgress += file.containedFileCount ?? 1
+                } else {
+                    importProgress += 1
+                }
+                continue
+            }
+        }
+
+        lastImportCount = successCount
+        isImporting = false
+        importProgress = 0
+        importTotal = 0
+
+        // Refresh the library if we're at the root
+        if !canNavigateUp() {
+            await loadFiles()
+        }
+    }
+
+    /// List files in a folder for expansion in pending imports view
+    func listFilesInFolder(_ url: URL) async -> [ComicFile] {
+        do {
+            return try await fileService.listFilesInFolder(at: url)
+        } catch {
+            return []
+        }
+    }
+
     func setSortOrder(_ order: SortOrder) {
         sortOrder = order
         files = sortFiles(files)
