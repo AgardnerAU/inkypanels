@@ -48,6 +48,9 @@ final class ReaderViewModel {
     /// Whether the current page is bookmarked
     var isCurrentPageBookmarked: Bool = false
 
+    /// All bookmarked pages for this comic
+    var bookmarks: [Int] = []
+
     /// Reader settings (shared instance)
     let settings = ReaderSettings.shared
 
@@ -139,10 +142,11 @@ final class ReaderViewModel {
             // Configure cache with reader and entries
             await extractionCache.configure(reader: reader!, entries: entries)
 
-            // Restore last reading position if available
+            // Restore last reading position and bookmarks if available
             if let savedProgress = await progressService?.loadProgress(for: comic.url.path) {
                 currentPageIndex = min(savedProgress.currentPage, entries.count - 1)
-                isCurrentPageBookmarked = savedProgress.bookmarks.contains(currentPageIndex)
+                bookmarks = savedProgress.bookmarks
+                isCurrentPageBookmarked = bookmarks.contains(currentPageIndex)
             }
 
             // Extract current page and immediate neighbors concurrently
@@ -318,6 +322,12 @@ final class ReaderViewModel {
         Task {
             await progressService?.toggleBookmark(for: comic.url.path, at: currentPageIndex)
             isCurrentPageBookmarked.toggle()
+            await loadBookmarks()
         }
+    }
+
+    /// Load all bookmarks for this comic
+    private func loadBookmarks() async {
+        bookmarks = await progressService?.bookmarks(for: comic.url.path) ?? []
     }
 }

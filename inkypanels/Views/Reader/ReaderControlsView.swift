@@ -6,13 +6,16 @@ struct ReaderControlsView: View {
     let totalPages: Int
     @Binding var fitMode: FitMode
     var isBookmarked: Bool = false
+    var bookmarks: [Int] = []
     var onToggleBookmark: (() -> Void)?
+    var onNavigateToPage: ((Int) -> Void)?
     let onClose: () -> Void
     let settings = ReaderSettings.shared
 
     @State private var isEditingPage = false
     @State private var pageInputText = ""
     @FocusState private var isPageInputFocused: Bool
+    @State private var showBookmarksList = false
 
     var body: some View {
         VStack {
@@ -49,15 +52,7 @@ struct ReaderControlsView: View {
 
             fitModeMenu
 
-            Button {
-                onToggleBookmark?()
-            } label: {
-                Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                    .font(.title2)
-                    .foregroundStyle(isBookmarked ? .yellow : .white)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(.ultraThinMaterial))
-            }
+            bookmarkMenu
 
             displayOptionsMenu
         }
@@ -95,6 +90,61 @@ struct ReaderControlsView: View {
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
                 .background(Circle().fill(.ultraThinMaterial))
+        }
+    }
+
+    private var bookmarkMenu: some View {
+        Menu {
+            // Toggle bookmark for current page
+            Button {
+                onToggleBookmark?()
+            } label: {
+                Label(
+                    isBookmarked ? "Remove Bookmark" : "Add Bookmark",
+                    systemImage: isBookmarked ? "bookmark.slash" : "bookmark"
+                )
+            }
+
+            if !bookmarks.isEmpty {
+                Divider()
+
+                // List of bookmarked pages
+                Section("Bookmarked Pages") {
+                    ForEach(bookmarks, id: \.self) { page in
+                        Button {
+                            onNavigateToPage?(page)
+                        } label: {
+                            HStack {
+                                Text("Page \(page + 1)")
+                                if page == currentPage {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                    .font(.title2)
+                    .foregroundStyle(isBookmarked ? .yellow : .white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(.ultraThinMaterial))
+
+                // Badge showing bookmark count
+                if !bookmarks.isEmpty {
+                    Text("\(bookmarks.count)")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(.blue))
+                        .offset(x: 4, y: -4)
+                }
+            }
         }
     }
 
@@ -275,7 +325,9 @@ struct ReaderControlsView: View {
             totalPages: 100,
             fitMode: .constant(.fit),
             isBookmarked: true,
+            bookmarks: [5, 12, 25, 50],
             onToggleBookmark: { print("Bookmark toggled") },
+            onNavigateToPage: { page in print("Navigate to page \(page)") },
             onClose: { print("Close tapped") }
         )
     }

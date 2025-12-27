@@ -204,7 +204,9 @@ struct ReaderView: View {
             totalPages: viewModel.totalPages,
             fitMode: $fitMode,
             isBookmarked: viewModel.isCurrentPageBookmarked,
+            bookmarks: viewModel.bookmarks,
             onToggleBookmark: { viewModel.toggleBookmark() },
+            onNavigateToPage: { page in viewModel.goToPage(page) },
             onClose: { dismiss() }
         )
         .transition(.opacity)
