@@ -284,6 +284,15 @@ struct LibraryView: View {
                 }
 
                 Button {
+                    Task {
+                        await viewModel.refresh()
+                        await viewModel.checkForPendingImports()
+                    }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+
+                Button {
                     viewModel.toggleSelection()
                 } label: {
                     Label("Select", systemImage: "checkmark.circle")
