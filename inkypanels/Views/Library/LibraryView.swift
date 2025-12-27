@@ -85,7 +85,7 @@ struct LibraryView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("\(viewModel.pendingImports.count) file\(viewModel.pendingImports.count == 1 ? " was" : "s were") transferred via Finder")
+                Text(pendingImportsSummary)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -102,6 +102,66 @@ struct LibraryView: View {
             Spacer()
         }
         .padding()
+    }
+
+    private var pendingImportsSummary: String {
+        let (folderCount, totalFileCount) = pendingImportCounts
+        let individualFileCount = totalFileCount - pendingContainedFileCount
+
+        if folderCount == 0 {
+            // Only individual files
+            return "\(totalFileCount) file\(totalFileCount == 1 ? " was" : "s were") transferred via Finder"
+        } else if individualFileCount == 0 {
+            // Only folders
+            let folderText = folderCount == 1 ? "1 folder" : "\(folderCount) folders"
+            let fileText = totalFileCount == 1 ? "1 file" : "\(totalFileCount) files"
+            return "\(folderText) with \(fileText) transferred via Finder"
+        } else {
+            // Mix of folders and individual files
+            let folderText = folderCount == 1 ? "1 folder" : "\(folderCount) folders"
+            let fileText = totalFileCount == 1 ? "1 file" : "\(totalFileCount) files"
+            return "\(folderText) and \(fileText) transferred via Finder"
+        }
+    }
+
+    private var pendingImportsBannerTitle: String {
+        let (folderCount, totalFileCount) = pendingImportCounts
+        let individualFileCount = totalFileCount - pendingContainedFileCount
+
+        if folderCount == 0 {
+            // Only individual files
+            return "\(totalFileCount) file\(totalFileCount == 1 ? "" : "s") ready to import"
+        } else if individualFileCount == 0 {
+            // Only folders
+            let folderText = folderCount == 1 ? "1 folder" : "\(folderCount) folders"
+            let fileText = totalFileCount == 1 ? "1 file" : "\(totalFileCount) files"
+            return "\(folderText) with \(fileText) ready to import"
+        } else {
+            // Mix of folders and individual files
+            let folderText = folderCount == 1 ? "1 folder" : "\(folderCount) folders"
+            let fileText = totalFileCount == 1 ? "1 file" : "\(totalFileCount) files"
+            return "\(folderText) and \(fileText) ready to import"
+        }
+    }
+
+    private var pendingImportCounts: (folderCount: Int, totalFileCount: Int) {
+        let imports = viewModel.pendingImports
+        let folders = imports.filter { $0.fileType == .folder }
+        let individualFiles = imports.filter { $0.fileType != .folder }
+
+        let folderCount = folders.count
+        let individualFileCount = individualFiles.count
+        let containedFileCount = folders.compactMap(\.containedFileCount).reduce(0, +)
+        let totalFileCount = individualFileCount + containedFileCount
+
+        return (folderCount, totalFileCount)
+    }
+
+    private var pendingContainedFileCount: Int {
+        viewModel.pendingImports
+            .filter { $0.fileType == .folder }
+            .compactMap(\.containedFileCount)
+            .reduce(0, +)
     }
 
     private var fileList: some View {
@@ -268,7 +328,7 @@ struct LibraryView: View {
                     .foregroundStyle(.blue)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(viewModel.pendingImports.count) file\(viewModel.pendingImports.count == 1 ? "" : "s") ready to import")
+                    Text(pendingImportsBannerTitle)
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundStyle(.primary)

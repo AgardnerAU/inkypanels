@@ -12,6 +12,8 @@ struct ComicFile: Identifiable, Hashable, Sendable {
     var readingProgress: ReadingProgress?
     var rating: Int?
     var isInVault: Bool
+    /// For folders, the number of comic files contained within (recursively)
+    let containedFileCount: Int?
 
     init(
         id: UUID = UUID(),
@@ -23,7 +25,8 @@ struct ComicFile: Identifiable, Hashable, Sendable {
         pageCount: Int? = nil,
         readingProgress: ReadingProgress? = nil,
         rating: Int? = nil,
-        isInVault: Bool = false
+        isInVault: Bool = false,
+        containedFileCount: Int? = nil
     ) {
         self.id = id
         self.url = url
@@ -35,6 +38,7 @@ struct ComicFile: Identifiable, Hashable, Sendable {
         self.readingProgress = readingProgress
         self.rating = rating
         self.isInVault = isInVault
+        self.containedFileCount = containedFileCount
     }
 }
 

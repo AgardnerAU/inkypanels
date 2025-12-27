@@ -155,7 +155,7 @@ final class LibraryViewModel {
     }
 
     func navigateUp() {
-        guard currentDirectory != fileService.comicsDirectory else { return }
+        guard canNavigateUp() else { return }
         currentDirectory = currentDirectory.deletingLastPathComponent()
         Task {
             await loadFiles()
@@ -163,7 +163,16 @@ final class LibraryViewModel {
     }
 
     func canNavigateUp() -> Bool {
-        currentDirectory != fileService.comicsDirectory
+        // Can only navigate up if:
+        // 1. We're not at the comics directory root
+        // 2. We're actually within the comics directory tree (not in Documents or elsewhere)
+        guard currentDirectory != fileService.comicsDirectory else { return false }
+
+        let comicsPath = fileService.comicsDirectory.standardizedFileURL.path
+        let currentPath = currentDirectory.standardizedFileURL.path
+
+        // Ensure we're within the comics directory tree
+        return currentPath.hasPrefix(comicsPath + "/")
     }
 
     func deleteFile(_ file: ComicFile) async throws {
