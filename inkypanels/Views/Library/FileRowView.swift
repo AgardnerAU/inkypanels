@@ -5,6 +5,7 @@ struct FileRowView: View {
     var isFavourite: Bool = false
 
     private let thumbnailSize = CGSize(width: 50, height: 70)
+    private var librarySettings: LibrarySettings { LibrarySettings.shared }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -43,11 +44,13 @@ struct FileRowView: View {
                         .background(Color.secondary.opacity(0.2))
                         .cornerRadius(4)
 
-                    Text(formattedFileSize)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if librarySettings.showFileSize {
+                        Text(formattedFileSize)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
-                    if let pageCount = file.pageCount {
+                    if librarySettings.showPageCount, let pageCount = file.pageCount {
                         Text("\(pageCount) pages")
                             .font(.caption)
                             .foregroundStyle(.secondary)

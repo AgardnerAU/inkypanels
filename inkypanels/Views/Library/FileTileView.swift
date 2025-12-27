@@ -6,6 +6,8 @@ struct FileTileView: View {
     let tileSize: TileSize
     var isFavourite: Bool = false
 
+    private var librarySettings: LibrarySettings { LibrarySettings.shared }
+
     var body: some View {
         VStack(spacing: 8) {
             // Thumbnail or folder icon
@@ -44,8 +46,57 @@ struct FileTileView: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(width: tileSize.thumbnailSize.width)
+
+            // Metadata (page count and file size)
+            if showMetadata {
+                metadataView
+            }
         }
         .frame(width: tileSize.minColumnWidth)
+    }
+
+    /// Whether to show any metadata
+    private var showMetadata: Bool {
+        file.fileType != .folder && (showPageCountInfo || showFileSizeInfo)
+    }
+
+    /// Whether to show page count (setting enabled and page count available)
+    private var showPageCountInfo: Bool {
+        librarySettings.showPageCount && file.pageCount != nil
+    }
+
+    /// Whether to show file size (setting enabled)
+    private var showFileSizeInfo: Bool {
+        librarySettings.showFileSize
+    }
+
+    @ViewBuilder
+    private var metadataView: some View {
+        HStack(spacing: 4) {
+            if showPageCountInfo, let pageCount = file.pageCount {
+                Text("\(pageCount)p")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if showPageCountInfo && showFileSizeInfo {
+                Text("•")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            if showFileSizeInfo {
+                Text(formattedFileSize)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var formattedFileSize: String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: file.fileSize)
     }
 
     private var folderThumbnail: some View {

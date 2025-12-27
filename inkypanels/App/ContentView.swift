@@ -438,6 +438,8 @@ private struct LibrarySettingsSection: View {
         Section {
             viewModePicker
             tileSizePicker
+            showPageCountToggle
+            showFileSizeToggle
         } header: {
             Text("Library")
         } footer: {
@@ -474,6 +476,28 @@ private struct LibrarySettingsSection: View {
         Binding(
             get: { librarySettings.tileSize },
             set: { librarySettings.tileSize = $0 }
+        )
+    }
+
+    private var showPageCountToggle: some View {
+        Toggle("Show Page Count", isOn: showPageCountBinding)
+    }
+
+    private var showFileSizeToggle: some View {
+        Toggle("Show File Size", isOn: showFileSizeBinding)
+    }
+
+    private var showPageCountBinding: Binding<Bool> {
+        Binding(
+            get: { librarySettings.showPageCount },
+            set: { librarySettings.showPageCount = $0 }
+        )
+    }
+
+    private var showFileSizeBinding: Binding<Bool> {
+        Binding(
+            get: { librarySettings.showFileSize },
+            set: { librarySettings.showFileSize = $0 }
         )
     }
 }

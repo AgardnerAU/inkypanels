@@ -61,11 +61,23 @@ final class LibrarySettings {
         didSet { save(tileSize.rawValue, for: .tileSize) }
     }
 
+    /// Whether to show page count for files
+    var showPageCount: Bool {
+        didSet { saveBool(showPageCount, for: .showPageCount) }
+    }
+
+    /// Whether to show file size for files
+    var showFileSize: Bool {
+        didSet { saveBool(showFileSize, for: .showFileSize) }
+    }
+
     // MARK: - Keys
 
     private enum Keys: String {
         case viewMode = "library.viewMode"
         case tileSize = "library.tileSize"
+        case showPageCount = "library.showPageCount"
+        case showFileSize = "library.showFileSize"
     }
 
     // MARK: - Init
@@ -88,11 +100,29 @@ final class LibrarySettings {
         } else {
             self.tileSize = .medium
         }
+
+        // Load show page count (default: true)
+        if defaults.object(forKey: Keys.showPageCount.rawValue) != nil {
+            self.showPageCount = defaults.bool(forKey: Keys.showPageCount.rawValue)
+        } else {
+            self.showPageCount = true
+        }
+
+        // Load show file size (default: true)
+        if defaults.object(forKey: Keys.showFileSize.rawValue) != nil {
+            self.showFileSize = defaults.bool(forKey: Keys.showFileSize.rawValue)
+        } else {
+            self.showFileSize = true
+        }
     }
 
     // MARK: - Persistence
 
     private func save(_ value: String, for key: Keys) {
+        UserDefaults.standard.set(value, forKey: key.rawValue)
+    }
+
+    private func saveBool(_ value: Bool, for key: Keys) {
         UserDefaults.standard.set(value, forKey: key.rawValue)
     }
 }
