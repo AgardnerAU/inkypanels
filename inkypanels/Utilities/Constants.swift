@@ -5,7 +5,7 @@ import CoreGraphics
 enum Constants {
     /// App metadata
     enum App {
-        static let name = "Inky Panels"
+        static let name = "Inky Panels Comic Reader"
         static let version = "0.1.0"
         static let bundleIdentifier = "com.inkypanels.app"
     }

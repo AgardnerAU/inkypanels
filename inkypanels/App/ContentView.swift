@@ -55,7 +55,7 @@ struct ContentView: View {
                     .listRowBackground(selectedTab == tab ? Color.accentColor.opacity(0.2) : nil)
                 }
             }
-            .navigationTitle("Inky Panels")
+            .navigationTitle("Inky Panels Comic Reader")
         } detail: {
             switch selectedTab {
             case .library:
