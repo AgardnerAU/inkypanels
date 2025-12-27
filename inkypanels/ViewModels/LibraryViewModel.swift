@@ -38,6 +38,12 @@ final class LibraryViewModel {
     /// Total number of files to import (including files in folders)
     var importTotal: Int = 0
 
+    /// Whether a file is currently being moved to vault
+    var isMovingToVault: Bool = false
+
+    /// Name of the file being moved to vault (for progress display)
+    var vaultOperationFileName: String = ""
+
     // MARK: - Sort Order
 
     enum SortOrder: String, CaseIterable {
@@ -136,6 +142,10 @@ final class LibraryViewModel {
             return
         }
 
+        // Set progress state
+        isMovingToVault = true
+        vaultOperationFileName = file.name
+
         do {
             try await vaultService.addFile(file)
             // Remove from current list
@@ -146,6 +156,10 @@ final class LibraryViewModel {
         } catch {
             self.error = .vault(.encryptionFailed(underlying: error))
         }
+
+        // Clear progress state
+        isMovingToVault = false
+        vaultOperationFileName = ""
     }
 
     func refresh() async {

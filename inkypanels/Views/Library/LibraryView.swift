@@ -82,9 +82,45 @@ struct LibraryView: View {
             await viewModel.loadFiles()
             await viewModel.checkForPendingImports()
         }
+        .overlay {
+            if viewModel.isMovingToVault {
+                vaultProgressOverlay
+            }
+        }
     }
 
     // MARK: - Subviews
+
+    private var vaultProgressOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
+
+                VStack(spacing: 4) {
+                    Text("Moving to Vault")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+
+                    Text(viewModel.vaultOperationFileName)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+
+                    Text("Encrypting...")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            .padding(32)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
 
     private var emptyStateWithPendingImports: some View {
         VStack(spacing: 24) {
